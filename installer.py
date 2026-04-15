@@ -19,7 +19,7 @@ from pathlib import Path
 # ============================================================
 APP_TITLE = "PDF2CSV セットアップウィザード"
 WINDOW_WIDTH = 580
-WINDOW_HEIGHT = 460
+WINDOW_HEIGHT = 520
 
 REQUIRED_PACKAGES = [
     "pdfplumber",
@@ -87,8 +87,21 @@ class InstallerApp(tk.Tk):
         )
         self.header_sub.place(relx=0.04, rely=0.78, anchor="w")
 
+        # ボトムバー ── side="bottom" は他より先に pack しないと押し出される
+        bottom = tk.Frame(self, bg="#e8e8f0", pady=10, padx=20)
+        bottom.pack(fill="x", side="bottom")
+
+        self.btn_back = ttk.Button(bottom, text="< 戻る", command=self._go_back, width=10)
+        self.btn_back.pack(side="left")
+
+        self.btn_next = ttk.Button(bottom, text="次へ >", command=self._go_next, width=10)
+        self.btn_next.pack(side="right")
+
+        self.btn_cancel = ttk.Button(bottom, text="キャンセル", command=self._on_cancel, width=10)
+        self.btn_cancel.pack(side="right", padx=8)
+
         # ステップインジケーター
-        indicator_frame = tk.Frame(self, bg="#f0f0f5", pady=8)
+        indicator_frame = tk.Frame(self, bg="#f0f0f5", pady=6)
         indicator_frame.pack(fill="x")
         self.step_labels = []
         for i, name in enumerate(STEPS):
@@ -102,21 +115,8 @@ class InstallerApp(tk.Tk):
             self.step_labels.append(lbl)
 
         # コンテンツエリア
-        self.content = tk.Frame(self, bg="white", padx=32, pady=20)
+        self.content = tk.Frame(self, bg="white", padx=32, pady=16)
         self.content.pack(fill="both", expand=True)
-
-        # ボトムバー
-        bottom = tk.Frame(self, bg="#e8e8f0", pady=10, padx=20)
-        bottom.pack(fill="x", side="bottom")
-
-        self.btn_back = ttk.Button(bottom, text="◀  戻る", command=self._go_back, width=10)
-        self.btn_back.pack(side="left")
-
-        self.btn_next = ttk.Button(bottom, text="次へ  ▶", command=self._go_next, width=10)
-        self.btn_next.pack(side="right")
-
-        self.btn_cancel = ttk.Button(bottom, text="キャンセル", command=self._on_cancel, width=10)
-        self.btn_cancel.pack(side="right", padx=8)
 
     # ----------------------------------------------------------
     # ステップ切り替え
