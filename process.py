@@ -224,42 +224,83 @@ JSONのみ出力し、説明文は不要です。
 """
 
 
+class FatalApiError(Exception):
+    """処理を中断すべき致命的なAPIエラー。"""
+    pass
+
+
 def extract_data_with_claude(pdf_path: Path, client: anthropic.Anthropic) -> list[dict]:
     """Claude Vision API でPDFからデータを抽出する。"""
 
     # まずテキスト抽出を試みる
     text = extract_text_with_pdfplumber(pdf_path)
 
-    if text.strip():
-        print(f"  [Claude] テキストPDFとして処理")
-        message = client.messages.create(
-            model="claude-opus-4-6",
-            max_tokens=4096,
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"{EXTRACTION_PROMPT}\n\n--- PDF テキスト ---\n{text}",
-                }
-            ],
-        )
-        raw = message.content[0].text
-    else:
-        print(f"  [Claude] 画像PDFとして処理（Vision）")
-        images = pdf_to_base64_images(pdf_path)
-        content = []
-        for img_b64 in images:
-            content.append({
-                "type": "image",
-                "source": {"type": "base64", "media_type": "image/png", "data": img_b64},
-            })
-        content.append({"type": "text", "text": EXTRACTION_PROMPT})
+    try:
+        if text.strip():
+            print(f"  [Claude] テキストPDFとして処理")
+            message = client.messages.create(
+                model="claude-opus-4-6",
+                max_tokens=4096,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": f"{EXTRACTION_PROMPT}\n\n--- PDF テキスト ---\n{text}",
+                    }
+                ],
+            )
+            raw = message.content[0].text
+        else:
+            print(f"  [Claude] 画像PDFとして処理（Vision）")
+            images = pdf_to_base64_images(pdf_path)
+            content = []
+            for img_b64 in images:
+                content.append({
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": "image/png", "data": img_b64},
+                })
+            content.append({"type": "text", "text": EXTRACTION_PROMPT})
 
-        message = client.messages.create(
-            model="claude-opus-4-6",
-            max_tokens=4096,
-            messages=[{"role": "user", "content": content}],
+            message = client.messages.create(
+                model="claude-opus-4-6",
+                max_tokens=4096,
+                messages=[{"role": "user", "content": content}],
+            )
+            raw = message.content[0].text
+
+    except anthropic.AuthenticationError:
+        raise FatalApiError(
+            "APIキーが無効です。\n"
+            ".env ファイルの ANTHROPIC_API_KEY を確認してください。\n"
+            "キーの取得: https://console.anthropic.com/settings/keys"
         )
-        raw = message.content[0].text
+    except anthropic.PermissionDeniedError as e:
+        msg = str(e)
+        if "credit" in msg.lower() or "billing" in msg.lower() or "balance" in msg.lower():
+            raise FatalApiError(
+                "Anthropic APIのクレジット残高が不足しています。\n"
+                "以下のページでクレジットを追加してください。\n"
+                "https://console.anthropic.com/settings/billing"
+            )
+        raise FatalApiError(f"APIアクセスが拒否されました: {msg}")
+    except anthropic.BadRequestError as e:
+        msg = str(e)
+        if "credit" in msg.lower() or "billing" in msg.lower() or "balance" in msg.lower():
+            raise FatalApiError(
+                "Anthropic APIのクレジット残高が不足しています。\n"
+                "以下のページでクレジットを追加してください。\n"
+                "https://console.anthropic.com/settings/billing"
+            )
+        print(f"  [Claude] リクエストエラー: {msg}")
+        return []
+    except anthropic.RateLimitError:
+        print(f"  [Claude] レート制限に達しました。しばらく待ってから再実行してください。")
+        return []
+    except anthropic.APIConnectionError:
+        print(f"  [Claude] ネットワークエラー。インターネット接続を確認してください。")
+        return []
+    except anthropic.APIError as e:
+        print(f"  [Claude] APIエラー: {e}")
+        return []
 
     # JSON抽出
     json_match = re.search(r"\[.*\]", raw, re.DOTALL)
@@ -337,8 +378,11 @@ def process_client_folder(
 
         print(f"  処理中: {pdf_path.name}")
 
-        # データ抽出
-        rows = extract_data_with_claude(pdf_path, claude_client)
+        # データ抽出（FatalApiError は呼び出し元に伝播）
+        try:
+            rows = extract_data_with_claude(pdf_path, claude_client)
+        except FatalApiError:
+            raise
         if not rows:
             print(f"  データ取得失敗: {pdf_path.name}")
             continue
@@ -384,10 +428,11 @@ def main():
 
     claude_client = anthropic.Anthropic(api_key=api_key)
 
-    # 客先フォルダを列挙
+    # 客先フォルダを列挙（samples はデモ用のため除外）
+    SKIP_FOLDERS = {"samples"}
     client_folders = [
         d for d in sorted(pdf_dir.iterdir())
-        if d.is_dir() and not d.name.startswith(".")
+        if d.is_dir() and not d.name.startswith(".") and d.name not in SKIP_FOLDERS
     ]
 
     if args.client:
@@ -405,8 +450,15 @@ def main():
     print(f"CSV フォルダ: {csv_dir}")
     print(f"処理対象: {[d.name for d in client_folders]}")
 
-    for folder in client_folders:
-        process_client_folder(folder, csv_dir, claude_client, force=args.force)
+    try:
+        for folder in client_folders:
+            process_client_folder(folder, csv_dir, claude_client, force=args.force)
+    except FatalApiError as e:
+        print(f"\n[エラー] 処理を中断しました。\n")
+        for line in str(e).splitlines():
+            print(f"  {line}")
+        print()
+        sys.exit(1)
 
     print("\n全処理完了。")
 
