@@ -1,9 +1,185 @@
-# PDF2CSV — 請求書PDF自動OCR・CSV変換ツール
-
-取引先から受け取った請求書PDF（テキスト型・スキャン型どちらも対応）を、  
-Claude AI が自動でOCR・構造化し、BIツールやExcelで即使えるCSVに変換します。
+# PDF2CSV — 請求書PDF 自動CSV変換ツール
 
 ---
+
+<!-- ============================================================ -->
+<!-- 👤 ユーザー向け                                               -->
+<!-- ============================================================ -->
+
+# 👤 ご利用ガイド（一般ユーザー向け）
+
+> IT知識がなくても使えるよう、手順を順番に説明しています。
+
+## このツールでできること
+
+取引先から届いた **請求書のPDFファイル** を所定のフォルダに入れてボタンを押すだけで、  
+**ExcelやBIツールで集計できるCSVファイル** に自動で変換します。
+
+- 普通のPDF（テキストが入ったもの）も、**スキャンしたPDF（画像のもの）** も読み取れます
+- 客先ごとに整理して保存されます
+- 毎月のデータが蓄積され、まとめて集計できます
+
+---
+
+## 仕組みのイメージ
+
+このツールは **あなたのパソコンの中で動きます**。  
+クラウドにデータをアップロードするサービスではなく、  
+PDFの読み取りだけ AI（Claude）にインターネット経由で依頼する構成です。
+
+```
+あなたのパソコン
+┌──────────────────────────────────────────────────────┐
+│                                                      │
+│  📁 PDFフォルダ          📁 CSVフォルダ              │
+│  └─ 株式会社A/           └─ 株式会社ACSV/            │
+│     └─ 請求書.pdf  ──→     └─ 20260415_請求書.csv   │
+│                    ↑                                 │
+│              process.py が変換                       │
+│                                                      │
+└──────────────────────────┬───────────────────────────┘
+                           │ PDFの内容を送信（読み取り依頼）
+                           ▼
+               🌐 Claude AI（Anthropic社のサービス）
+                  ※ 請求書の文字を読み取って返してくれる
+```
+
+> **PDFファイル自体はパソコンの外に出ません。**  
+> Claude AI に送られるのは「このPDFを読み取って」という指示とPDFの内容のみです。
+
+---
+
+## はじめる前に準備するもの
+
+| 必要なもの | 説明 |
+|-----------|------|
+| **Windows / Mac パソコン** | インターネットに接続できること |
+| **Python（無料）** | ツールを動かすソフトウェア。インストーラーが確認します |
+| **Anthropic APIキー** | AIの利用に必要な「鍵」。取得方法は下記参照 |
+
+### Anthropic APIキーの取得方法
+
+1. https://console.anthropic.com/settings/keys をブラウザで開く
+2. Anthropic のアカウントを作成してログイン
+3. 「Create Key」ボタンを押してキーを生成
+4. `sk-ant-` で始まる文字列をコピーしておく
+
+> **料金について：** APIは従量課金です。請求書1件あたりの目安は数円〜数十円程度です。  
+> 月の上限金額も設定できます（Anthropicのコンソール画面から設定可能）。
+
+---
+
+## セットアップ手順（初回のみ）
+
+### ステップ 1：インストーラーをダウンロードする
+
+以下のリンクからファイルをダウンロードします。
+
+**→ [📥 installer.py をダウンロード](https://raw.githubusercontent.com/ganase/pdf2csv/main/installer.py)**
+
+ダウンロードしたら、使いやすい場所（例：`C:\作業\PDF2CSV\`）に保存してください。
+
+> **Pythonがまだ入っていない場合：**  
+> https://www.python.org/downloads/ からインストールしてください。  
+> インストール時に「**Add Python to PATH**」のチェックを必ず入れてください。
+
+### ステップ 2：インストーラーを起動する
+
+`installer.py` を保存したフォルダを開き、ファイルをダブルクリックします。  
+（または右クリック →「Pythonで実行」）
+
+画面が開いたら、ウィザードの指示に従って進めてください。
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  PDF2CSV セットアップウィザード                           │
+│  ステップ 1 / 6  —  ようこそ                             │
+├──────────────────────────────────────────────────────────┤
+│                                                          │
+│  ① ようこそ         … ツールの説明                      │
+│  ② Pythonの確認     … Python が入っているか自動確認     │
+│  ③ パッケージ       … 必要なソフトを自動インストール    │
+│  ④ APIキーの設定    … 取得したキーを貼り付けて保存      │
+│  ⑤ フォルダの設定   … 作業フォルダを選ぶ               │
+│  ⑥ 完了            … 準備完了！フォルダが開きます      │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
+```
+
+セットアップが完了すると、選んだ場所に以下のフォルダが作られます。
+
+```
+（選んだ作業フォルダ）
+├── PDF/     ← ここに請求書PDFを入れる
+├── CSV/     ← 変換されたCSVが自動で保存される
+└── .env     ← APIキーが保存されたファイル（触らなくてOK）
+```
+
+---
+
+## 毎回の使い方
+
+### 手順 1：PDFを所定のフォルダに入れる
+
+`PDF` フォルダの中に、**客先名のフォルダ** を作って請求書PDFを入れます。
+
+```
+PDF/
+├── 株式会社ABC/
+│   ├── 請求書_2026-03.pdf
+│   └── 請求書_2026-04.pdf
+└── 有限会社XYZ/
+    └── 請求書_2026-04.pdf
+```
+
+### 手順 2：変換を実行する
+
+コマンドプロンプト（またはターミナル）を開いて、以下を入力します。
+
+```
+cd （作業フォルダのパス）
+python process.py
+```
+
+しばらく待つと、`CSV` フォルダに変換済みファイルが出来上がります。
+
+### 手順 3：CSVを確認する
+
+```
+CSV/
+├── 株式会社ABCCSV/
+│   ├── table_definition.csv   ← 列の定義書（自動生成）
+│   ├── 20260401_請求書_2026-03.csv
+│   └── 20260415_請求書_2026-04.csv
+└── 有限会社XYZCSV/
+    └── 20260415_請求書_2026-04.csv
+```
+
+---
+
+## よくある質問
+
+**Q. 同じPDFを2回処理してしまうと？**  
+A. 同名の出力CSVがある場合は自動でスキップされます。安心してください。
+
+**Q. 新しい種類の項目が請求書に出てきたら？**  
+A. 列が自動で追加されます。過去のCSVにも空欄として追記されます。
+
+**Q. スキャンした（画像の）請求書PDFでも使えますか？**  
+A. 使えます。自動的に画像として読み取り処理します。
+
+**Q. PDFのデータは外部に保存されますか？**  
+A. PDFの内容（文字・画像）はAI読み取りのためにAnthropicのAPIに送られますが、  
+　 ファイル自体はパソコン外に保存されません。
+
+---
+---
+
+<!-- ============================================================ -->
+<!-- 🛠️ エンジニア向け                                            -->
+<!-- ============================================================ -->
+
+# 🛠️ 技術資料（エンジニア向け）
 
 ## システム構成図
 
@@ -11,7 +187,7 @@ Claude AI が自動でOCR・構造化し、BIツールやExcelで即使えるCSV
 flowchart TD
     User(["👤 ユーザー"])
 
-    subgraph local["ローカル環境"]
+    subgraph local["ローカル環境（ユーザーのPC）"]
         direction TB
         PDFFolder["📁 PDF/\n└ &lt;客先名&gt;/\n　└ invoice.pdf"]
         Script["⚙️ process.py"]
@@ -22,7 +198,7 @@ flowchart TD
         direction TB
         TextOCR["📄 テキスト抽出\n(pdfplumber)"]
         VisionOCR["🖼️ Vision OCR\n(PyMuPDF + Claude Vision)"]
-        Structured["🧠 データ構造化\n(Claude claude-opus-4-6)"]
+        Structured["🧠 データ構造化\n(claude-opus-4-6)"]
     end
 
     subgraph bi["分析ツール"]
@@ -43,127 +219,19 @@ flowchart TD
     CSVFolder --> BI
 ```
 
----
-
-## フォルダ構成
+## リポジトリ構成
 
 ```
-PDF2CSV/              ← リポジトリルート
-├── process.py        ← 処理スクリプト（本体）
-├── .env.example      ← APIキー設定テンプレート
-├── .gitignore
-├── README.md
-│
-├── PDF/              ← ユーザーがPDFを配置するフォルダ（git管理外）
-│   └── <客先名>/     ← 客先ごとにフォルダを作成
-│       ├── 請求書_2026-03.pdf
-│       └── 請求書_2026-04.pdf
-│
-└── CSV/              ← 自動生成（git管理外）
-    └── <客先名>CSV/
-        ├── table_definition.csv      ← テーブル定義書（初回自動生成）
-        ├── 20260401_請求書_2026-03.csv
-        └── 20260415_請求書_2026-04.csv
+pdf2csv/
+├── process.py          # 変換処理本体
+├── installer.py        # GUIセットアップウィザード（tkinter）
+├── requirements.txt    # 依存パッケージ
+├── .env.example        # APIキー設定テンプレート
+├── .gitignore          # PDF/ CSV/ .env を除外
+└── README.md
 ```
 
----
-
-## セットアップ手順
-
-### 方法 A：GUIインストーラーを使う（推奨）
-
-リポジトリをクローンして、インストーラーを起動するだけです。
-
-```bash
-git clone https://github.com/ganase/pdf2csv.git
-cd pdf2csv
-python installer.py
-```
-
-ウィザードが起動し、以下を自動でガイドします。
-
-```
-┌─────────────────────────────────────────────┐
-│  PDF2CSV セットアップウィザード              │
-│  ステップ 1 / 6  —  ようこそ                │
-├─────────────────────────────────────────────┤
-│  ① ようこそ         … ツール説明           │
-│  ② Pythonの確認     … バージョン自動チェック│
-│  ③ パッケージ       … pip install 自動実行  │
-│  ④ APIキーの設定    … キー入力→.env保存    │
-│  ⑤ フォルダの設定   … PDF/CSVフォルダ作成  │
-│  ⑥ 完了            … 作業フォルダを開く    │
-└─────────────────────────────────────────────┘
-```
-
-### 方法 B：手動セットアップ
-
-#### 1. リポジトリのクローン
-
-```bash
-git clone https://github.com/ganase/pdf2csv.git
-cd pdf2csv
-```
-
-#### 2. Pythonパッケージのインストール
-
-Python 3.10 以上が必要です。
-
-```bash
-pip install -r requirements.txt
-```
-
-#### 3. APIキーの設定
-
-`.env.example` をコピーして `.env` を作成し、Anthropic APIキーを入力します。
-
-```bash
-# Windows
-copy .env.example .env
-
-# Mac / Linux
-cp .env.example .env
-```
-
-`.env` をテキストエディタで開き、キーを設定：
-
-```
-ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-```
-
-> APIキーは https://console.anthropic.com/settings/keys で取得できます。
-
-#### 4. PDFフォルダの準備
-
-```
-PDF/
-└── 株式会社ABC/          ← 客先名でフォルダを作成
-    └── 請求書_2026-03.pdf
-```
-
-`PDF/` フォルダ内に客先名のサブフォルダを作り、そこにPDFを入れるだけです。
-
----
-
-## 実行方法
-
-```bash
-# 全客先のPDFを処理
-python process.py
-
-# 特定の客先のみ処理
-python process.py --client 株式会社ABC
-
-# 処理済みファイルも強制再処理
-python process.py --force
-
-# フォルダパスを明示的に指定
-python process.py --pdf-dir ./PDF --csv-dir ./CSV
-```
-
----
-
-## 処理の流れ
+## 処理フロー詳細
 
 ```
 process.py 起動
@@ -173,97 +241,94 @@ process.py 起動
 ├─ 各PDFに対して
 │   ├─ pdfplumber でテキスト抽出を試みる
 │   │   ├─ 成功（テキストPDF）→ Claude API にテキストを送信
-│   │   └─ 失敗（スキャンPDF）→ PyMuPDF で2倍解像度PNG化
+│   │   └─ 失敗（スキャンPDF）→ PyMuPDF で 2× 解像度PNG化
 │   │                            → Claude Vision API に送信
 │   │
-│   └─ Claude がJSON形式で明細データを返す
+│   └─ claude-opus-4-6 が JSON 配列（明細行単位）を返す
 │
 ├─ CSV/<客先名>CSV/ に出力
-│   ├─ 初回: table_definition.csv（テーブル定義書）を自動生成
-│   └─ 2回目以降: 定義書を参照して同じ列構造で出力
-│       └─ 新列が出現した場合: 定義書更新 + 既存CSVにも空列追加
+│   ├─ 初回: table_definition.csv を自動生成
+│   └─ 2回目以降: 定義書を参照して列順を統一
+│       └─ 新列が出現した場合: 定義書更新 + 既存CSVに空列追加
 │
 └─ 完了
 ```
 
----
+## セットアップ（手動）
 
-## 出力CSVの列構成
+```bash
+git clone https://github.com/ganase/pdf2csv.git
+cd pdf2csv
+pip install -r requirements.txt
+cp .env.example .env   # Windows: copy .env.example .env
+# .env に ANTHROPIC_API_KEY を設定
+```
 
-| 列名 | 内容 | 例 |
-|------|------|----|
-| `source_file` | 元PDFファイル名 | `請求書_2026-03.pdf` |
-| `processed_date` | 処理日 | `2026-04-15` |
-| `client_name` | 客先名（フォルダ名） | `株式会社ABC` |
-| `billing_month` | 請求月 | `2026-03` |
-| `recipient` | 宛先名 | `株式会社XYZ` |
-| `item_no` | 明細番号 | `1` |
-| `item_description` | 明細項目 | `システム開発費` |
-| `quantity` | 数量 | `1` |
-| `unit` | 単位 | `式` |
-| `unit_price` | 単価 | `500000` |
-| `amount` | 金額 | `500000` |
-| `tax` | 消費税 | `50000` |
-| `subtotal` | 小計 | `500000` |
-| `total` | 合計 | `550000` |
-| `remarks` | 備考 | `支払期限：2026-04-30` |
+## 実行オプション
 
-> 請求書によって新しい項目が出現した場合、列が自動で追加されます。
+```bash
+python process.py                        # 全客先を処理
+python process.py --client 株式会社ABC  # 特定客先のみ
+python process.py --force               # 処理済みも再処理
+python process.py --pdf-dir ./PDF --csv-dir ./CSV  # パス明示
+```
 
----
+## 出力CSVスキーマ
 
-## BIツール・Excelでの集計
+| 列名 | 型 | 内容 |
+|------|----|------|
+| `source_file` | str | 元PDFファイル名 |
+| `processed_date` | date | 処理日 (YYYY-MM-DD) |
+| `client_name` | str | 客先名（フォルダ名） |
+| `billing_month` | str | 請求月 (YYYY-MM) |
+| `recipient` | str | 宛先名 |
+| `item_no` | int | 明細番号 |
+| `item_description` | str | 明細項目 |
+| `quantity` | num | 数量 |
+| `unit` | str | 単位 |
+| `unit_price` | num | 単価 |
+| `amount` | num | 金額 |
+| `tax` | num | 消費税 |
+| `subtotal` | num | 小計 |
+| `total` | num | 合計 |
+| `remarks` | str | 備考 |
 
-同一客先の全CSVは **同じ列構造** で出力されるため、そのままUNIONできます。
+> 未知の列はClaudeの抽出結果に応じて自動追加。既存CSVに空列として遡及追加される。
 
-### Excel（Power Query）
+## BIツール・Excelでの UNION 集計
 
-1. `データ` タブ → `データの取得` → `ファイルから` → `フォルダーから`
-2. `CSV/<客先名>CSV/` フォルダを選択
+同一客先の全CSVは同じ列構造で出力されるため、フォルダ指定だけで UNION できます。
+
+**Excel（Power Query）**
+
+1. `データ` → `データの取得` → `ファイルから` → `フォルダーから`
+2. `CSV/<客先名>CSV/` を選択
 3. 「バイナリの結合」→ `table_definition.csv` を除外
-4. 全CSVが1つのテーブルに結合されます
 
-### Power BI
+**Power BI**
 
 1. `データを取得` → `フォルダー`
-2. `CSV/<客先名>CSV/` を指定
-3. `table_definition.csv` をフィルタで除外して読み込み
+2. `CSV/<客先名>CSV/` を指定し `table_definition.csv` をフィルタ除外
 
----
+## テーブル定義書 (`table_definition.csv`)
 
-## テーブル定義書（`table_definition.csv`）について
+初回処理時に自動生成。以降の処理で列順・列名の基準となる。
 
-初回処理時に `CSV/<客先名>CSV/table_definition.csv` が自動生成されます。
+| 列 | 内容 |
+|----|------|
+| `column_name` | 列名 |
+| `description` | 説明（自動付与） |
+| `example` | 記入例（任意・手動） |
 
-| column_name | description | example |
-|-------------|-------------|---------|
-| source_file | 元PDFファイル名 | |
-| billing_month | 請求月 (YYYY-MM) | |
-| ... | ... | |
-
-- 2回目以降はこの定義書を読み込んで列順を統一します
-- 新しい項目が出現した場合、定義書に行を追加し **既存CSVにも空列を追加** します
-- `example` 列は手動で記入できます（任意）
-
----
-
-## 注意事項
-
-- `.env` ファイルは `.gitignore` で管理対象外にしています。APIキーをコミットしないでください
-- `PDF/` と `CSV/` フォルダも `.gitignore` で管理対象外です
-- スキャンPDFは解像度2倍（144dpi相当）で画像化してOCR精度を高めています
-- 同名の出力CSVが既にある場合はスキップします（`--force` で再処理）
-- Claude APIの利用料金が発生します（従量課金）
-
----
+新列が増えた場合：定義書末尾に追記 → 既存CSVに空列を遡及追加。
 
 ## 動作環境
 
-| 項目 | 内容 |
+| 項目 | 要件 |
 |------|------|
 | Python | 3.10 以上 |
-| OS | Windows / Mac / Linux |
-| API | Anthropic API (Claude claude-opus-4-6) |
+| OS | Windows / macOS / Linux |
+| API | Anthropic API (`claude-opus-4-6`) |
 
 ## ライセンス
 
