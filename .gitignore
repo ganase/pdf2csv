@@ -1,5 +1,11 @@
 # 処理済みデータ（バージョン管理外）
-PDF/
+# PDF/ 以下はすべて除外。ただし samples/ だけ追跡する
+PDF/*
+!PDF/samples/
+PDF/samples/*
+!PDF/samples/*/
+PDF/samples/*/*
+!PDF/samples/*/*.pdf
 CSV/
 
 # APIキー・環境変数
