@@ -70,22 +70,50 @@ PDF2CSV/              ← リポジトリルート
 
 ## セットアップ手順
 
-### 1. リポジトリのクローン
+### 方法 A：GUIインストーラーを使う（推奨）
+
+リポジトリをクローンして、インストーラーを起動するだけです。
+
+```bash
+git clone https://github.com/ganase/pdf2csv.git
+cd pdf2csv
+python installer.py
+```
+
+ウィザードが起動し、以下を自動でガイドします。
+
+```
+┌─────────────────────────────────────────────┐
+│  PDF2CSV セットアップウィザード              │
+│  ステップ 1 / 6  —  ようこそ                │
+├─────────────────────────────────────────────┤
+│  ① ようこそ         … ツール説明           │
+│  ② Pythonの確認     … バージョン自動チェック│
+│  ③ パッケージ       … pip install 自動実行  │
+│  ④ APIキーの設定    … キー入力→.env保存    │
+│  ⑤ フォルダの設定   … PDF/CSVフォルダ作成  │
+│  ⑥ 完了            … 作業フォルダを開く    │
+└─────────────────────────────────────────────┘
+```
+
+### 方法 B：手動セットアップ
+
+#### 1. リポジトリのクローン
 
 ```bash
 git clone https://github.com/ganase/pdf2csv.git
 cd pdf2csv
 ```
 
-### 2. Pythonパッケージのインストール
+#### 2. Pythonパッケージのインストール
 
 Python 3.10 以上が必要です。
 
 ```bash
-pip install pdfplumber pymupdf anthropic python-dotenv pandas
+pip install -r requirements.txt
 ```
 
-### 3. APIキーの設定
+#### 3. APIキーの設定
 
 `.env.example` をコピーして `.env` を作成し、Anthropic APIキーを入力します。
 
@@ -105,7 +133,7 @@ ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 > APIキーは https://console.anthropic.com/settings/keys で取得できます。
 
-### 4. PDFフォルダの準備
+#### 4. PDFフォルダの準備
 
 ```
 PDF/
