@@ -24,6 +24,9 @@ build/
 .venv/
 venv/
 
+# ビルドスクリプト（README.pdf 生成用）
+build_readme_pdf.py
+
 # OS
 .DS_Store
 Thumbs.db
