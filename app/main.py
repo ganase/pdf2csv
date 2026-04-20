@@ -64,7 +64,10 @@ async def _startup():
 # ── ルート ─────────────────────────────────────────────────────
 @app.get("/", include_in_schema=False)
 async def index():
-    return FileResponse(str(STATIC_DIR / "index.html"))
+    return FileResponse(
+        str(STATIC_DIR / "index.html"),
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 # ── 設定 ──────────────────────────────────────────────────────
