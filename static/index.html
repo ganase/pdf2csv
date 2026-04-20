@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDF2CSV Web UI</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<style>
+  [x-cloak] { display: none !important; }
+  .log-info    { color: #6b7280; }
+  .log-success { color: #16a34a; font-weight: 500; }
+  .log-error   { color: #dc2626; font-weight: 600; }
+  .log-warn    { color: #d97706; font-weight: 500; }
+  #log-area    { font-family: 'Courier New', monospace; font-size: 0.8rem; }
+</style>
+</head>
+<body class="bg-gray-50 min-h-screen" x-data="app()" x-cloak>
+
+<!-- ヘッダー -->
+<header class="bg-blue-700 text-white shadow">
+  <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <span class="text-2xl">📄</span>
+      <span class="font-bold text-lg tracking-wide">PDF2CSV Web UI</span>
+    </div>
+    <button @click="settingsOpen = true"
+            class="p-2 rounded hover:bg-blue-600 transition" title="設定">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<!-- APIキー未設定バナー -->
+<div x-show="!apiKeySet" class="bg-amber-50 border-b border-amber-200 px-4 py-2 text-sm text-amber-800 flex items-center gap-2">
+  <span>⚠️</span>
+  <span>APIキーが設定されていません。</span>
+  <button @click="settingsOpen = true" class="underline font-semibold">設定画面を開く</button>
+</div>
+
+<main class="max-w-5xl mx-auto px-4 py-6 space-y-6">
+
+  <!-- パネル1: ファイル選択 & 実行 -->
+  <section class="bg-white rounded-xl shadow p-5">
+    <h2 class="font-bold text-gray-700 text-sm uppercase tracking-wide mb-3">実行</h2>
+
+    <!-- タブ -->
+    <div class="flex gap-1 mb-4 border-b border-gray-200">
+      <button @click="tab = 'rename'; loadFiles()"
+        :class="tab === 'rename'
+          ? 'border-b-2 border-blue-600 text-blue-700 font-semibold'
+          : 'text-gray-500 hover:text-gray-700'"
+        class="px-4 py-2 text-sm transition">
+        📁 PDF リネーム・整理
+      </button>
+      <button @click="tab = 'process'; loadFiles()"
+        :class="tab === 'process'
+          ? 'border-b-2 border-blue-600 text-blue-700 font-semibold'
+          : 'text-gray-500 hover:text-gray-700'"
+        class="px-4 py-2 text-sm transition">
+        📊 CSV 変換
+      </button>
+    </div>
+
+    <!-- ファイルリスト -->
+    <div class="mb-3 flex items-center justify-between">
+      <span class="text-sm text-gray-600">
+        <span x-text="files.length"></span> 件のPDF
+        （<span x-text="files.filter(f=>f.checked).length"></span> 件選択中）
+      </span>
+      <div class="flex gap-2">
+        <button @click="toggleAll(true)"
+          class="text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-600">全選択</button>
+        <button @click="toggleAll(false)"
+          class="text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-600">全解除</button>
+        <button @click="loadFiles()"
+          class="text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-600">🔄 更新</button>
+      </div>
+    </div>
+
+    <div class="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
+      <template x-if="files.length === 0">
+        <div class="p-4 text-sm text-gray-400 text-center">
+          PDF/ フォルダにPDFファイルがありません
+        </div>
+      </template>
+      <template x-for="(file, i) in files" :key="i">
+        <label class="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-0">
+          <input type="checkbox" x-model="file.checked" class="rounded text-blue-600">
+          <span class="text-sm text-gray-700 truncate" x-text="file.name"></span>
+        </label>
+      </template>
+    </div>
+
+    <!-- オプション（CSV変換のみ） -->
+    <div x-show="tab === 'process'" class="mt-3">
+      <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+        <input type="checkbox" x-model="force" class="rounded text-blue-600">
+        <span>処理済みファイルも再処理する（force）</span>
+      </label>
+    </div>
+
+    <!-- 実行ボタン -->
+    <div class="mt-4 flex items-center gap-3">
+      <button
+        @click="runJob()"
+        :disabled="running || files.filter(f=>f.checked).length === 0 || !apiKeySet"
+        :class="running || files.filter(f=>f.checked).length === 0 || !apiKeySet
+          ? 'bg-gray-300 text-gray-400 cursor-not-allowed'
+          : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'"
+        class="px-5 py-2 rounded-lg font-semibold text-sm transition flex items-center gap-2">
+        <span x-show="running" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+        <span x-text="running ? '処理中...' : (tab === 'rename' ? '▶ リネーム実行' : '▶ CSV変換実行')"></span>
+      </button>
+      <span x-show="!apiKeySet" class="text-xs text-amber-600">※ APIキーを設定してください</span>
+    </div>
+  </section>
+
+  <!-- パネル2: ログ -->
+  <section class="bg-white rounded-xl shadow p-5" x-show="logs.length > 0 || running">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-bold text-gray-700 text-sm uppercase tracking-wide">処理ログ</h2>
+      <div class="flex items-center gap-2">
+        <span x-show="running" class="text-xs text-blue-600 flex items-center gap-1">
+          <span class="inline-block w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></span>
+          処理中...
+        </span>
+        <button @click="logs = []" class="text-xs text-gray-400 hover:text-gray-600">クリア</button>
+      </div>
+    </div>
+    <div id="log-area"
+         class="bg-gray-900 text-gray-100 rounded-lg p-3 max-h-60 overflow-y-auto space-y-0.5"
+         x-ref="logArea">
+      <template x-for="log in logs" :key="log.id">
+        <div :class="'log-' + log.level" x-text="log.text"></div>
+      </template>
+    </div>
+  </section>
+
+  <!-- パネル3: 結果 -->
+  <section class="bg-white rounded-xl shadow p-5" x-show="currentResults.length > 0">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-bold text-gray-700 text-sm uppercase tracking-wide">
+        結果
+        <span class="ml-2 text-xs font-normal text-gray-400">
+          成功 <span x-text="currentResults.filter(r=>r.status==='ok').length" class="text-green-600 font-bold"></span> /
+          失敗 <span x-text="currentResults.filter(r=>r.status==='failed').length" class="text-red-500 font-bold"></span>
+        </span>
+      </h2>
+    </div>
+
+    <!-- リネーム結果テーブル -->
+    <div x-show="currentJobType === 'rename'" class="overflow-x-auto">
+      <table class="w-full text-xs border-collapse">
+        <thead>
+          <tr class="bg-blue-700 text-white">
+            <th class="px-3 py-2 text-left">元ファイル</th>
+            <th class="px-3 py-2 text-left">結果</th>
+            <th class="px-3 py-2 text-left">書類区分</th>
+            <th class="px-3 py-2 text-left">仕入先</th>
+            <th class="px-3 py-2 text-left">年月</th>
+            <th class="px-3 py-2 text-left">税込金額</th>
+            <th class="px-3 py-2 text-left">DL</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="(r, i) in currentResults" :key="i">
+            <tr :class="i%2===0 ? 'bg-white' : 'bg-gray-50'" class="border-b border-gray-100">
+              <td class="px-3 py-2 text-gray-700 max-w-xs truncate" x-text="r.source"></td>
+              <td class="px-3 py-2">
+                <span :class="r.status==='ok' ? 'text-green-600' : 'text-red-500'" x-text="r.status==='ok' ? '✓ 成功' : '✗ 失敗'"></span>
+              </td>
+              <td class="px-3 py-2 text-gray-600" x-text="r.doc_type"></td>
+              <td class="px-3 py-2 text-gray-600 max-w-xs truncate" x-text="r.supplier"></td>
+              <td class="px-3 py-2 text-gray-600" x-text="r.month"></td>
+              <td class="px-3 py-2 text-gray-600" x-text="r.total ? Number(r.total).toLocaleString() + '円' : '-'"></td>
+              <td class="px-3 py-2">
+                <button x-show="r.status === 'ok' && r.dest_path"
+                  @click="download(currentJobId, r.dest_path)"
+                  class="text-blue-600 hover:underline">↓</button>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- CSV変換結果テーブル -->
+    <div x-show="currentJobType === 'process'" class="overflow-x-auto">
+      <table class="w-full text-xs border-collapse">
+        <thead>
+          <tr class="bg-blue-700 text-white">
+            <th class="px-3 py-2 text-left">元ファイル</th>
+            <th class="px-3 py-2 text-left">結果</th>
+            <th class="px-3 py-2 text-left">請求年月</th>
+            <th class="px-3 py-2 text-left">明細行数</th>
+            <th class="px-3 py-2 text-left">CSVファイル</th>
+            <th class="px-3 py-2 text-left">DL</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="(r, i) in currentResults" :key="i">
+            <tr :class="i%2===0 ? 'bg-white' : 'bg-gray-50'" class="border-b border-gray-100">
+              <td class="px-3 py-2 text-gray-700 max-w-xs truncate" x-text="r.source"></td>
+              <td class="px-3 py-2">
+                <span :class="r.status==='ok' ? 'text-green-600' : r.status==='skipped' ? 'text-gray-400' : 'text-red-500'"
+                  x-text="r.status==='ok' ? '✓ 成功' : r.status==='skipped' ? '⏭ スキップ' : '✗ 失敗'"></span>
+              </td>
+              <td class="px-3 py-2 text-gray-600" x-text="r.billing_month"></td>
+              <td class="px-3 py-2 text-gray-600" x-text="r.rows_written > 0 ? r.rows_written + '行' : '-'"></td>
+              <td class="px-3 py-2 text-gray-600 max-w-xs truncate" x-text="r.csv_path"></td>
+              <td class="px-3 py-2">
+                <button x-show="r.csv_path"
+                  @click="download(currentJobId, r.csv_path)"
+                  class="text-blue-600 hover:underline">↓</button>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 履歴 -->
+  <section class="bg-white rounded-xl shadow p-5" x-show="history.length > 0">
+    <button @click="historyOpen = !historyOpen"
+            class="w-full flex items-center justify-between text-left">
+      <h2 class="font-bold text-gray-700 text-sm uppercase tracking-wide">
+        処理履歴
+        <span class="ml-2 text-xs font-normal text-gray-400" x-text="history.length + ' 件'"></span>
+      </h2>
+      <span x-text="historyOpen ? '▲' : '▼'" class="text-gray-400 text-xs"></span>
+    </button>
+
+    <div x-show="historyOpen" class="mt-3 space-y-2">
+      <template x-for="(job, i) in history" :key="job.job_id">
+        <div class="border border-gray-100 rounded-lg p-3">
+          <div class="flex items-center justify-between mb-1">
+            <div class="flex items-center gap-2">
+              <span :class="job.status === 'done' ? 'bg-green-100 text-green-700' : job.status === 'error' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'"
+                    class="text-xs px-2 py-0.5 rounded-full font-medium"
+                    x-text="job.status === 'done' ? '完了' : job.status === 'error' ? 'エラー' : job.status"></span>
+              <span class="text-xs font-medium text-gray-600"
+                    x-text="job.type === 'rename' ? 'PDFリネーム' : 'CSV変換'"></span>
+              <span class="text-xs text-gray-400" x-text="formatDate(job.created_at)"></span>
+            </div>
+            <span class="text-xs text-gray-400" x-text="job.pdf_files.length + '件'"></span>
+          </div>
+          <div class="flex gap-2 flex-wrap mt-1">
+            <template x-for="result in job.results.filter(r => r.status === 'ok').slice(0,3)" :key="result.source">
+              <button x-show="result.dest_path || result.csv_path"
+                @click="download(job.job_id, result.dest_path || result.csv_path)"
+                class="text-xs text-blue-600 hover:underline"
+                x-text="'↓ ' + (result.dest_path || result.csv_path).split('/').pop()">
+              </button>
+            </template>
+            <span x-show="job.results.filter(r=>r.status==='ok').length > 3"
+                  class="text-xs text-gray-400"
+                  x-text="'他 ' + (job.results.filter(r=>r.status==='ok').length - 3) + ' 件'"></span>
+          </div>
+        </div>
+      </template>
+    </div>
+  </section>
+
+</main>
+
+<!-- 設定モーダル -->
+<div x-show="settingsOpen"
+     class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+     @click.self="settingsOpen = false">
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold text-gray-800">設定</h3>
+      <button @click="settingsOpen = false" class="text-gray-400 hover:text-gray-600 text-xl">×</button>
+    </div>
+
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Anthropic APIキー</label>
+        <div x-show="apiKeySet" class="text-sm text-gray-500 mb-2">
+          現在の設定: <code class="bg-gray-100 px-1 rounded" x-text="apiKeyMasked"></code>
+          <span x-show="apiKeySource === 'env_var'" class="ml-2 text-xs text-amber-600">
+            （環境変数から読み込み中・変更不可）
+          </span>
+        </div>
+        <div x-show="apiKeySource !== 'env_var'">
+          <input type="password"
+                 x-model="apiKeyInput"
+                 placeholder="sk-ant-..."
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <button @click="saveSettings()"
+                  :disabled="!apiKeyInput.trim()"
+                  class="mt-2 w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-lg px-4 py-2 text-sm font-medium transition">
+            保存
+          </button>
+        </div>
+        <p class="mt-2 text-xs text-gray-400">
+          APIキーは <a href="https://console.anthropic.com/settings/keys" target="_blank"
+            class="underline text-blue-500">console.anthropic.com</a> で取得できます。
+          1件あたり数円〜数十円の従量課金です。
+        </p>
+      </div>
+
+      <div x-show="settingsSaved" class="text-sm text-green-600 font-medium">✓ 保存しました</div>
+      <div x-show="settingsError" class="text-sm text-red-500" x-text="settingsError"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function app() {
+  return {
+    tab: 'rename',
+    files: [],
+    force: false,
+    running: false,
+    logs: [],
+    currentJobId: null,
+    currentJobType: null,
+    currentResults: [],
+    history: [],
+    historyOpen: false,
+    settingsOpen: false,
+    apiKeyInput: '',
+    apiKeyMasked: '',
+    apiKeySource: 'dotenv',
+    apiKeySet: false,
+    settingsSaved: false,
+    settingsError: '',
+
+    async init() {
+      await this.loadSettings();
+      await this.loadFiles();
+      await this.loadHistory();
+    },
+
+    async loadSettings() {
+      try {
+        const r = await fetch('/api/settings');
+        const d = await r.json();
+        this.apiKeySet    = d.api_key_set;
+        this.apiKeyMasked = d.api_key_masked;
+        this.apiKeySource = d.source;
+      } catch (e) { console.error(e); }
+    },
+
+    async saveSettings() {
+      this.settingsSaved = false;
+      this.settingsError = '';
+      try {
+        const r = await fetch('/api/settings', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({api_key: this.apiKeyInput}),
+        });
+        if (!r.ok) {
+          const d = await r.json();
+          this.settingsError = d.detail || '保存に失敗しました';
+          return;
+        }
+        this.settingsSaved = true;
+        this.apiKeyInput = '';
+        await this.loadSettings();
+        setTimeout(() => { this.settingsSaved = false; }, 3000);
+      } catch (e) {
+        this.settingsError = String(e);
+      }
+    },
+
+    async loadFiles() {
+      try {
+        const r = await fetch('/api/pdf_files');
+        const d = await r.json();
+        const prev = new Set(this.files.filter(f=>f.checked).map(f=>f.name));
+        this.files = d.files.map(f => ({
+          name: f,
+          checked: prev.size === 0 || prev.has(f),
+        }));
+      } catch (e) { console.error(e); }
+    },
+
+    async loadHistory() {
+      try {
+        const r = await fetch('/api/history');
+        const d = await r.json();
+        this.history = d.jobs;
+      } catch (e) { console.error(e); }
+    },
+
+    toggleAll(v) {
+      this.files = this.files.map(f => ({...f, checked: v}));
+    },
+
+    async runJob() {
+      if (this.running) return;
+      const selected = this.files.filter(f => f.checked).map(f => f.name);
+      if (selected.length === 0) return;
+
+      this.running = true;
+      this.logs = [];
+      this.currentResults = [];
+      this.currentJobType = this.tab;
+
+      try {
+        const r = await fetch('/api/run', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            type: this.tab,
+            files: selected,
+            force: this.force,
+          }),
+        });
+        if (!r.ok) {
+          const d = await r.json();
+          this.logs.push({level: 'error', text: d.detail || '実行に失敗しました', id: 0});
+          this.running = false;
+          return;
+        }
+        const d = await r.json();
+        this.currentJobId = d.job_id;
+        this.openStream(d.job_id);
+      } catch (e) {
+        this.logs.push({level: 'error', text: String(e), id: 0});
+        this.running = false;
+      }
+    },
+
+    openStream(jobId) {
+      const es = new EventSource(`/api/jobs/${jobId}/stream`);
+
+      es.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        this.logs.push(msg);
+        this.$nextTick(() => {
+          const el = this.$refs.logArea;
+          if (el) el.scrollTop = el.scrollHeight;
+        });
+      };
+
+      es.addEventListener('done', (e) => {
+        const payload = JSON.parse(e.data);
+        this.currentResults = payload.results || [];
+        this.running = false;
+        es.close();
+        this.loadHistory();
+      });
+
+      es.onerror = () => {
+        this.running = false;
+        es.close();
+      };
+    },
+
+    download(jobId, filePath) {
+      const a = document.createElement('a');
+      a.href = `/api/download/${jobId}/${filePath}`;
+      a.download = filePath.split('/').pop();
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    },
+
+    formatDate(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      return d.toLocaleString('ja-JP', {
+        month:'2-digit', day:'2-digit',
+        hour:'2-digit', minute:'2-digit'
+      });
+    },
+  };
+}
+</script>
+</body>
+</html>
