@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv, dotenv_values
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -106,6 +106,42 @@ async def list_pdf_files():
             continue
         files.append(str(p.relative_to(PDF_DIR)))
     return {"files": files}
+
+
+# ── PDFアップロード ───────────────────────────────────────────
+@app.post("/api/pdf_files/upload", status_code=201)
+async def upload_pdf_files(files: list[UploadFile] = File(...)):
+    saved = []
+    for upload in files:
+        name = Path(upload.filename).name
+        if not name.lower().endswith(".pdf"):
+            raise HTTPException(422, f"PDFファイルのみアップロード可能です: {name}")
+        # パストラバーサル防止: ファイル名のみ使用
+        dest = PDF_DIR / name
+        content = await upload.read()
+        dest.write_bytes(content)
+        saved.append(name)
+    return {"saved": saved}
+
+
+# ── PDF削除 ───────────────────────────────────────────────────
+class DeleteRequest(BaseModel):
+    filename: str
+
+
+@app.delete("/api/pdf_files")
+async def delete_pdf_file(body: DeleteRequest):
+    target = (PDF_DIR / body.filename).resolve()
+    try:
+        target.relative_to(PDF_DIR.resolve())
+    except ValueError:
+        raise HTTPException(400, "不正なパスです")
+    if not target.exists():
+        raise HTTPException(404, "ファイルが見つかりません")
+    if not target.is_file():
+        raise HTTPException(400, "ファイルではありません")
+    target.unlink()
+    return {"deleted": body.filename}
 
 
 # ── ジョブ投入 ────────────────────────────────────────────────
