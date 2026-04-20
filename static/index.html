@@ -236,7 +236,7 @@
   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" style="color:#BF0000;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
   </svg>
-  <span style="color:#9B1C1C;">Anthropic APIキーが設定されていません。</span>
+  <span style="color:#9B1C1C;">Rakuten AI Gateway キーが設定されていません。</span>
   <button @click="settingsOpen = true"
           style="color:#BF0000;font-weight:600;text-decoration:underline;">設定画面を開く</button>
 </div>
@@ -546,7 +546,7 @@
     <div class="px-6 py-5 space-y-5">
       <div>
         <label class="block text-sm font-semibold mb-1.5" style="color:#374151;">
-          Anthropic APIキー
+          Rakuten AI Gateway キー
         </label>
 
         <!-- 現在の設定表示 -->
@@ -565,7 +565,7 @@
         <div x-show="apiKeySource !== 'env_var'" class="space-y-2">
           <input type="password"
                  x-model="apiKeyInput"
-                 placeholder="sk-ant-..."
+                 placeholder="Rakuten AI Gateway APIキーを入力"
                  class="input-field">
           <button @click="saveSettings()"
                   :disabled="!apiKeyInput.trim()"
@@ -575,12 +575,8 @@
         </div>
 
         <p class="mt-3 text-xs" style="color:#9CA3AF;">
-          APIキーは
-          <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener"
-             style="color:#BF0000;text-decoration:underline;">
-            console.anthropic.com
-          </a>
-          で取得できます。1件あたり数円〜数十円の従量課金です。
+          Rakuten AI Gateway のAPIキーを入力してください。<br>
+          環境変数 <code style="font-family:monospace;background:#F3F4F6;padding:1px 4px;border-radius:2px;">RAKUTEN_AI_GATEWAY_KEY</code> でも設定できます。
         </p>
       </div>
 

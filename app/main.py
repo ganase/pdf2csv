@@ -17,11 +17,9 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .services.claude import FatalApiError
+from .services.claude import FatalApiError, make_client
 from .services.pdf_rename_svc import rename_one
 from .services.pdf_process_svc import process_one
-
-import anthropic
 
 # ── パス設定 ──────────────────────────────────────────────────
 BASE_DIR     = Path(__file__).parent.parent
@@ -73,11 +71,11 @@ async def index():
 # ── 設定 ──────────────────────────────────────────────────────
 @app.get("/api/settings")
 async def get_settings():
-    env_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    env_key = os.environ.get("RAKUTEN_AI_GATEWAY_KEY", "")
     if env_key:
         masked = _mask(env_key)
         return {"api_key_set": True, "api_key_masked": masked, "source": "env_var"}
-    dotenv_key = dotenv_values(str(ENV_PATH)).get("ANTHROPIC_API_KEY", "")
+    dotenv_key = dotenv_values(str(ENV_PATH)).get("RAKUTEN_AI_GATEWAY_KEY", "")
     if dotenv_key:
         return {"api_key_set": True, "api_key_masked": _mask(dotenv_key), "source": "dotenv"}
     return {"api_key_set": False, "api_key_masked": "", "source": "dotenv"}
@@ -89,7 +87,7 @@ class SettingsBody(BaseModel):
 
 @app.post("/api/settings")
 async def post_settings(body: SettingsBody):
-    if os.environ.get("ANTHROPIC_API_KEY"):
+    if os.environ.get("RAKUTEN_AI_GATEWAY_KEY"):
         raise HTTPException(400, "環境変数で設定されているため変更できません")
     key = body.api_key.strip()
     if not key:
@@ -291,13 +289,13 @@ def _run_job(job_id: str):
     counter = [0]
 
     load_dotenv(str(ENV_PATH))
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    api_key = os.environ.get("RAKUTEN_AI_GATEWAY_KEY", "")
     if not api_key:
-        _put(job, counter, "error", "ANTHROPIC_API_KEY が設定されていません")
+        _put(job, counter, "error", "RAKUTEN_AI_GATEWAY_KEY が設定されていません")
         _finish(job, "error")
         return
 
-    client = anthropic.Anthropic(api_key=api_key)
+    client = make_client(api_key)
 
     def log_cb(level: str, text: str):
         _put(job, counter, level, text)
@@ -361,13 +359,13 @@ def _write_env_key(key: str):
     replaced = False
     if ENV_PATH.exists():
         for line in ENV_PATH.read_text(encoding="utf-8").splitlines():
-            if line.startswith("ANTHROPIC_API_KEY="):
-                lines.append(f"ANTHROPIC_API_KEY={key}")
+            if line.startswith("RAKUTEN_AI_GATEWAY_KEY="):
+                lines.append(f"RAKUTEN_AI_GATEWAY_KEY={key}")
                 replaced = True
             else:
                 lines.append(line)
     if not replaced:
-        lines.append(f"ANTHROPIC_API_KEY={key}")
+        lines.append(f"RAKUTEN_AI_GATEWAY_KEY={key}")
     tmp = ENV_PATH.with_suffix(".tmp")
     tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")
     tmp.replace(ENV_PATH)

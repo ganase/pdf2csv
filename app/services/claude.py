@@ -12,6 +12,17 @@ from typing import Callable, Any
 import pdfplumber
 import fitz
 import anthropic
+from anthropic import Anthropic
+
+GATEWAY_BASE_URL = "https://api.ai.public.rakuten-it.com/anthropic/"
+MODEL = "claude-sonnet-4-6"
+
+
+def make_client(api_key: str) -> Anthropic:
+    return Anthropic(
+        base_url=GATEWAY_BASE_URL,
+        auth_token=api_key,
+    )
 
 logging.getLogger("pdfminer").setLevel(logging.ERROR)
 
@@ -56,7 +67,7 @@ def call_claude(
         try:
             if text:
                 msg = client.messages.create(
-                    model="claude-opus-4-6",
+                    model=MODEL,
                     max_tokens=4096,
                     messages=[{"role": "user", "content": f"{prompt}\n\n--- PDF テキスト ---\n{text}"}],
                 )
@@ -67,7 +78,7 @@ def call_claude(
                 ]
                 content.append({"type": "text", "text": prompt})
                 msg = client.messages.create(
-                    model="claude-opus-4-6",
+                    model=MODEL,
                     max_tokens=4096,
                     messages=[{"role": "user", "content": content}],
                 )
