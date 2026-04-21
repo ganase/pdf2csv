@@ -1,22 +1,77 @@
 # PDF2CSV — 請求書PDF 自動整理・CSV変換ツール
 
-> **一般ユーザー向けの詳細ガイドは [README.pdf](./README.pdf) をご覧ください。**
+> **詳細ガイドは [README.pdf](./README.pdf) をご覧ください。**
+
+---
+
+## 初期セットアップ
+
+### 1. ZIPを展開する
+
+GitHubのリポジトリページから **Code → Download ZIP** でダウンロードし、任意のフォルダに展開します。
+
+```
+pdf2csv-main/   ← 展開後のフォルダ名（任意の場所でOK）
+```
+
+### 2. Python をインストールする
+
+Python 3.10 以上が必要です。インストール済みの場合はスキップ。
+
+- [https://www.python.org/downloads/](https://www.python.org/downloads/) からダウンロード
+- インストール時に **「Add Python to PATH」にチェック**を入れること
+
+### 3. 依存パッケージをインストールする
+
+展開したフォルダ内でコマンドプロンプト（またはターミナル）を開き、次のコマンドを実行します。
+
+```cmd
+pip install -r requirements.txt
+```
+
+### 4. APIキーを設定する
+
+`.env.example` を `.env` にコピーし、Rakuten AI Gateway のAPIキーを設定します。
+
+**Windows:**
+```cmd
+copy .env.example .env
+```
+
+`.env` をテキストエディタで開き、次のように編集します。
+
+```
+RAKUTEN_AI_GATEWAY_KEY=your_api_key_here
+```
+
+> APIキーはブラウザUI の設定画面からも設定できます（手順5以降）。
+
+### 5. Web UI を起動する
+
+`web.bat`（Windows）または `web.command`（Mac）をダブルクリックします。
+
+ブラウザが自動で開き、`http://localhost:8000` にアクセスされます。
+
+### 6. APIキーを画面から設定する（手順4をスキップした場合）
+
+右上の **設定ボタン（歯車）** をクリックし、Rakuten AI Gateway キーを入力して保存します。
 
 ---
 
 ## できること
 
-取引先から届いたPDF（請求書・注文書など）を所定のフォルダに入れてダブルクリックするだけで、2つの処理を自動実行します。
+取引先から届いたPDF（請求書・注文書など）を `PDF/` フォルダに置き、ブラウザUIから操作するだけで2つの処理を自動実行します。
 
-| 機能 | 説明 | 起動ファイル |
-|------|------|-------------|
-| **① PDFリネーム・月別整理** | `書類区分_仕入先名_YYYYMM_税込金額.pdf` にリネームして `PDF_RENAMED/<YYYYMM>/` にコピー | `pdf_rename.bat` / `.command` |
-| **② PDF → CSV 変換** | 明細行単位でCSV化し、同月の全PDFを `CSV/<YYYYMM>/請求書_YYYYMM.csv` に集約 | `process.bat` / `.command` |
+| 機能 | 説明 |
+|------|------|
+| **PDFリネーム・月別整理** | `書類区分_仕入先名_YYYYMM_税込金額.pdf` にリネームして `PDF_RENAMED/<YYYYMM>/` にコピー |
+| **PDF → CSV 変換** | 明細行単位でCSV化し、同月の全PDFを `CSV/<YYYYMM>/書類_YYYYMM.csv` に集約 |
 
 - テキストPDF・スキャン画像PDF どちらも対応
 - 書類区分（請求書・注文書・見積書など）を自動判別
-- Claude に3回問い合わせて多数決で値を確定（精度向上）
-- 失敗ファイルは `失敗_元ファイル名.pdf` として同フォルダに保存
+- 複数LLMモデル対応（Anthropic / OpenAI / Gemini / Rakuten AI）
+- LLMに3回問い合わせて多数決で値を確定（精度向上）
+- 失敗ファイルは `失敗_元ファイル名.pdf` として保存
 - オリジナルPDFは変更しない
 
 ---
@@ -26,52 +81,49 @@
 ```
 pdf2csv/
 ├── PDF/                  # 元ファイル置き場（変更されない）
-│   └── 任意のサブフォルダ/
-│       └── invoice.pdf
+│   └── samples/          # サンプルPDF
 ├── PDF_RENAMED/          # リネーム済みコピー（自動生成）
 │   └── 202604/
-│       └── 請求書_株式会社ABC_202604_110000.pdf
+├── PDF_ARCHIVE/          # アーカイブ済みPDF（自動生成）
 ├── CSV/                  # 変換結果（自動生成）
 │   └── 202604/
-│       └── 請求書_202604.csv
-├── pdf_rename.py         # PDFリネーム本体
-├── pdf_rename.bat        # Windows 起動用
-├── pdf_rename.command    # Mac 起動用
-├── process.py            # CSV変換本体
-├── process.bat           # Windows 起動用
-├── process.command       # Mac 起動用
-├── installer.py          # GUIセットアップウィザード（tkinter）
-├── setup.bat             # Windows セットアップ起動用
-├── requirements.txt      # 依存パッケージ
-├── .env.example          # APIキー設定テンプレート
-└── README.pdf            # 一般ユーザー向け詳細ガイド（PDF）
+│       └── 書類_202604.csv
+├── app/                  # Web UI バックエンド（FastAPI）
+│   ├── main.py
+│   └── services/
+│       ├── claude.py         # LLM呼び出し統一層
+│       ├── pdf_rename_svc.py
+│       └── pdf_process_svc.py
+├── static/
+│   └── index.html        # Web UI フロントエンド
+├── web.bat               # Windows 起動用
+├── web.command           # Mac 起動用
+├── requirements.txt
+├── .env.example
+├── Dockerfile
+├── render.yaml           # Render デプロイ設定
+└── README.pdf            # 詳細ガイド（PDF）
 ```
 
 ---
 
-## セットアップ（手動）
+## 使い方（ブラウザUI）
 
-```bash
-git clone https://github.com/ganase/pdf2csv.git
-cd pdf2csv
-pip install -r requirements.txt
-cp .env.example .env   # Windows: copy .env.example .env
-# .env に ANTHROPIC_API_KEY を設定
-```
+1. `web.bat` をダブルクリックしてサーバーを起動
+2. ブラウザで `http://localhost:8000` を開く
+3. PDFをアップロード、または `PDF/` フォルダに直接配置
+4. タブで **CSV変換** または **PDFリネーム** を選択
+5. 対象ファイルにチェックを入れて実行ボタンをクリック
+6. 処理完了後、結果画面からCSV/PDFをダウンロード
 
----
+### フォルダボタン
 
-## 実行オプション
+- **PDF ボタン**: `PDF/` フォルダをエクスプローラーで開く
+- **CSV ボタン**: `CSV/` フォルダをエクスプローラーで開く
 
-```bash
-# PDFリネーム
-python pdf_rename.py
+### Archive ボタン
 
-# CSV変換
-python process.py
-python process.py --force                          # 処理済みも再処理
-python process.py --pdf-dir ./PDF --csv-dir ./CSV  # パス明示
-```
+選択したPDFを `PDF_ARCHIVE/` フォルダへ移動します（処理済みファイルの整理に）。
 
 ---
 
@@ -92,13 +144,33 @@ python process.py --pdf-dir ./PDF --csv-dir ./CSV  # パス明示
 
 ---
 
+## 対応LLMモデル
+
+設定画面からプロバイダーとモデルを選択できます。リストにないモデルIDは手入力も可能です。
+
+| プロバイダー | 主なモデル |
+|---|---|
+| Rakuten Gateway (Anthropic) | claude-sonnet-4-6, claude-haiku-4-5 |
+| Rakuten Gateway (OpenAI) | gpt-5.1, gpt-5-mini など |
+| Rakuten Gateway (Gemini) | gemini-3-flash-preview など |
+| Rakuten AI | rakutenai-2.0, rakutenai-3.0 など |
+
+---
+
 ## 動作環境
 
 | 項目 | 要件 |
 |------|------|
 | Python | 3.10 以上 |
 | OS | Windows / macOS |
-| API | Anthropic API（`claude-opus-4-6`） |
+| API | Rakuten AI Gateway |
+
+---
+
+## クラウドデプロイ（Render）
+
+`render.yaml` を使って Render 無料プランにデプロイできます。
+環境変数 `RAKUTEN_AI_GATEWAY_KEY` を Render の管理画面で設定してください。
 
 ---
 
