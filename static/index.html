@@ -282,6 +282,19 @@
           <input type="file" multiple accept=".pdf" class="hidden"
                  @change="uploadFiles($event)">
         </label>
+        <!-- フォルダを開くボタン -->
+        <button @click="openFolder('pdf')" class="btn-ghost" style="display:inline-flex;align-items:center;gap:4px;" title="PDFフォルダを開く">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
+          </svg>
+          PDF
+        </button>
+        <button @click="openFolder('csv')" class="btn-ghost" style="display:inline-flex;align-items:center;gap:4px;" title="CSVフォルダを開く">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
+          </svg>
+          CSV
+        </button>
       </div>
     </div>
 
@@ -343,6 +356,18 @@
         /
         <span x-text="customModel || selectedModel" style="font-family:monospace;"></span>
       </span>
+
+      <!-- アーカイブボタン -->
+      <button class="btn-ghost ml-auto"
+              style="display:inline-flex;align-items:center;gap:4px;color:#92400E;border-color:#FCD34D;"
+              @click="archiveSelected()"
+              :disabled="running || files.filter(f=>f.checked).length === 0"
+              title="選択したPDFをArchiveフォルダへ移動">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+        </svg>
+        Archive
+      </button>
     </div>
   </div>
 
@@ -783,6 +808,39 @@ function app() {
       } catch (e) {
         alert(String(e));
       }
+    },
+
+    async openFolder(folder) {
+      try {
+        const r = await fetch('/api/open_folder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ folder }),
+        });
+        if (!r.ok) {
+          const d = await r.json();
+          alert(d.detail || 'フォルダを開けませんでした');
+        }
+      } catch (e) { alert(String(e)); }
+    },
+
+    async archiveSelected() {
+      const selected = this.files.filter(f => f.checked).map(f => f.name);
+      if (!selected.length) return;
+      if (!confirm(`選択した ${selected.length} 件を Archive フォルダへ移動しますか？`)) return;
+      try {
+        const r = await fetch('/api/archive', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ files: selected }),
+        });
+        if (!r.ok) {
+          const d = await r.json();
+          alert(d.detail || 'アーカイブに失敗しました');
+          return;
+        }
+        await this.loadFiles();
+      } catch (e) { alert(String(e)); }
     },
 
     async runJob() {

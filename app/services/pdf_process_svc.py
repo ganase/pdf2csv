@@ -132,8 +132,8 @@ def process_one(
     month_folder = m.group(1) + m.group(2)
     csv_month_dir = csv_dir / month_folder
     csv_month_dir.mkdir(parents=True, exist_ok=True)
-    csv_path = csv_month_dir / f"請求書_{month_folder}.csv"
-    rel_path = f"{month_folder}/請求書_{month_folder}.csv"
+    csv_path = csv_month_dir / f"書類_{month_folder}.csv"
+    rel_path = f"{month_folder}/書類_{month_folder}.csv"
 
     if not force and csv_path.exists():
         with open(csv_path, encoding="utf-8-sig", newline="") as f:

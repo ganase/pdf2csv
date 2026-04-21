@@ -31,10 +31,12 @@ if os.environ.get("RENDER") or os.environ.get("USE_DATA_DIR"):
     PDF_DIR     = DATA_DIR / "PDF"
     RENAMED_DIR = DATA_DIR / "PDF_RENAMED"
     CSV_DIR     = DATA_DIR / "CSV"
+    ARCHIVE_DIR = DATA_DIR / "PDF_ARCHIVE"
 else:
     PDF_DIR     = BASE_DIR / "PDF"
     RENAMED_DIR = BASE_DIR / "PDF_RENAMED"
     CSV_DIR     = BASE_DIR / "CSV"
+    ARCHIVE_DIR = BASE_DIR / "PDF_ARCHIVE"
 
 SKIP_DIRS = {"samples"}
 
@@ -55,7 +57,7 @@ _executor = ThreadPoolExecutor(max_workers=4)
 async def _startup():
     global _loop
     _loop = asyncio.get_running_loop()
-    for d in (PDF_DIR, RENAMED_DIR, CSV_DIR):
+    for d in (PDF_DIR, RENAMED_DIR, CSV_DIR, ARCHIVE_DIR):
         d.mkdir(parents=True, exist_ok=True)
 
 
@@ -94,6 +96,50 @@ async def post_settings(body: SettingsBody):
         raise HTTPException(422, "APIキーが空です")
     _write_env_key(key)
     return {"ok": True}
+
+
+# ── フォルダを開く（ローカル専用） ────────────────────────────
+@app.post("/api/open_folder")
+async def open_folder(body: dict):
+    folder = body.get("folder", "pdf")
+    if os.environ.get("RENDER") or os.environ.get("USE_DATA_DIR"):
+        raise HTTPException(400, "クラウド環境ではフォルダを開けません")
+    target = {"pdf": PDF_DIR, "csv": CSV_DIR, "archive": ARCHIVE_DIR}.get(folder)
+    if target is None:
+        raise HTTPException(422, "folder は pdf / csv / archive のいずれかです")
+    import subprocess, sys
+    if sys.platform == "win32":
+        subprocess.Popen(["explorer", str(target)])
+    elif sys.platform == "darwin":
+        subprocess.Popen(["open", str(target)])
+    else:
+        subprocess.Popen(["xdg-open", str(target)])
+    return {"ok": True, "path": str(target)}
+
+
+# ── アーカイブ ────────────────────────────────────────────────
+class ArchiveRequest(BaseModel):
+    files: list[str]
+
+
+@app.post("/api/archive")
+async def archive_files(body: ArchiveRequest):
+    moved = []
+    for filename in body.files:
+        src = (PDF_DIR / filename).resolve()
+        try:
+            src.relative_to(PDF_DIR.resolve())
+        except ValueError:
+            raise HTTPException(400, f"不正なパス: {filename}")
+        if not src.exists():
+            raise HTTPException(404, f"ファイルが見つかりません: {filename}")
+        dest = ARCHIVE_DIR / src.name
+        # 同名ファイルが既にある場合はサフィックスを付ける
+        if dest.exists():
+            dest = ARCHIVE_DIR / f"{src.stem}_{uuid.uuid4().hex[:6]}{src.suffix}"
+        src.rename(dest)
+        moved.append(src.name)
+    return {"moved": moved}
 
 
 # ── モデル一覧 ────────────────────────────────────────────────
