@@ -4,57 +4,31 @@
 
 ---
 
-## 初期セットアップ
+## 初期セットアップ（初回のみ）
 
-### 1. ZIPを展開する
+### 1. ZIPファイルを展開する
 
-GitHubのリポジトリページから **Code → Download ZIP** でダウンロードし、任意のフォルダに展開します。
-
-```
-pdf2csv-main/   ← 展開後のフォルダ名（任意の場所でOK）
-```
-
-### 2. Python をインストールする
-
-Python 3.10 以上が必要です。インストール済みの場合はスキップ。
-
-- [https://www.python.org/downloads/](https://www.python.org/downloads/) からダウンロード
-- インストール時に **「Add Python to PATH」にチェック**を入れること
-
-### 3. 依存パッケージをインストールする
-
-展開したフォルダ内でコマンドプロンプト（またはターミナル）を開き、次のコマンドを実行します。
-
-```cmd
-pip install -r requirements.txt
-```
-
-### 4. APIキーを設定する
-
-`.env.example` を `.env` にコピーし、Rakuten AI Gateway のAPIキーを設定します。
-
-**Windows:**
-```cmd
-copy .env.example .env
-```
-
-`.env` をテキストエディタで開き、次のように編集します。
+配布された ZIP ファイルを任意のフォルダに展開します。
 
 ```
-RAKUTEN_AI_GATEWAY_KEY=your_api_key_here
+pdf2csv/   ← 展開後のフォルダ
 ```
 
-> APIキーはブラウザUI の設定画面からも設定できます（手順5以降）。
+### 2. setup.bat を実行する
 
-### 5. Web UI を起動する
+展開したフォルダ内の **`setup.bat`** をダブルクリックします。
 
-`web.bat`（Windows）または `web.command`（Mac）をダブルクリックします。
+- Python の有無を自動確認
+- 必要なパッケージを自動インストール
+- Rakuten AI Gateway の API キー入力を促し `.env` に保存
 
-ブラウザが自動で開き、`http://localhost:8000` にアクセスされます。
+> Python が入っていない場合はメッセージに従ってインストールしてから再実行してください。
 
-### 6. APIキーを画面から設定する（手順4をスキップした場合）
+### 3. web.bat で起動する
 
-右上の **設定ボタン（歯車）** をクリックし、Rakuten AI Gateway キーを入力して保存します。
+セットアップ完了後は **`web.bat`** をダブルクリックするだけで起動します。
+
+ブラウザが自動で開き `http://localhost:8000` が表示されます。
 
 ---
 
@@ -81,27 +55,19 @@ RAKUTEN_AI_GATEWAY_KEY=your_api_key_here
 ```
 pdf2csv/
 ├── PDF/                  # 元ファイル置き場（変更されない）
-│   └── samples/          # サンプルPDF
 ├── PDF_RENAMED/          # リネーム済みコピー（自動生成）
 │   └── 202604/
 ├── PDF_ARCHIVE/          # アーカイブ済みPDF（自動生成）
 ├── CSV/                  # 変換結果（自動生成）
 │   └── 202604/
 │       └── 書類_202604.csv
-├── app/                  # Web UI バックエンド（FastAPI）
-│   ├── main.py
-│   └── services/
-│       ├── claude.py         # LLM呼び出し統一層
-│       ├── pdf_rename_svc.py
-│       └── pdf_process_svc.py
-├── static/
-│   └── index.html        # Web UI フロントエンド
-├── web.bat               # Windows 起動用
-├── web.command           # Mac 起動用
+├── app/                  # バックエンド（FastAPI）
+├── static/               # Web UI
+├── setup.bat             # セットアップ（初回のみ）
+├── web.bat               # 起動ファイル（Windows）
+├── web.command           # 起動ファイル（Mac）
 ├── requirements.txt
 ├── .env.example
-├── Dockerfile
-├── render.yaml           # Render デプロイ設定
 └── README.pdf            # 詳細ガイド（PDF）
 ```
 
@@ -114,16 +80,13 @@ pdf2csv/
 3. PDFをアップロード、または `PDF/` フォルダに直接配置
 4. タブで **CSV変換** または **PDFリネーム** を選択
 5. 対象ファイルにチェックを入れて実行ボタンをクリック
-6. 処理完了後、結果画面からCSV/PDFをダウンロード
 
 ### フォルダボタン
-
 - **PDF ボタン**: `PDF/` フォルダをエクスプローラーで開く
 - **CSV ボタン**: `CSV/` フォルダをエクスプローラーで開く
 
 ### Archive ボタン
-
-選択したPDFを `PDF_ARCHIVE/` フォルダへ移動します（処理済みファイルの整理に）。
+選択したPDFを `PDF_ARCHIVE/` フォルダへ移動（処理済みファイルの整理用）。
 
 ---
 
@@ -144,19 +107,6 @@ pdf2csv/
 
 ---
 
-## 対応LLMモデル
-
-設定画面からプロバイダーとモデルを選択できます。リストにないモデルIDは手入力も可能です。
-
-| プロバイダー | 主なモデル |
-|---|---|
-| Rakuten Gateway (Anthropic) | claude-sonnet-4-6, claude-haiku-4-5 |
-| Rakuten Gateway (OpenAI) | gpt-5.1, gpt-5-mini など |
-| Rakuten Gateway (Gemini) | gemini-3-flash-preview など |
-| Rakuten AI | rakutenai-2.0, rakutenai-3.0 など |
-
----
-
 ## 動作環境
 
 | 項目 | 要件 |
@@ -164,13 +114,6 @@ pdf2csv/
 | Python | 3.10 以上 |
 | OS | Windows / macOS |
 | API | Rakuten AI Gateway |
-
----
-
-## クラウドデプロイ（Render）
-
-`render.yaml` を使って Render 無料プランにデプロイできます。
-環境変数 `RAKUTEN_AI_GATEWAY_KEY` を Render の管理画面で設定してください。
 
 ---
 
