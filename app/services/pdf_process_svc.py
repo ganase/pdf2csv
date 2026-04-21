@@ -8,9 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, TypedDict
 
-import anthropic
-
-from .claude import call_claude, extract_text, pdf_to_images_b64, FatalApiError
+from .claude import call_claude, extract_text, pdf_to_images_b64, FatalApiError, DEFAULT_PROVIDER
 
 COLUMNS = [
     "処理日", "元ファイル名", "仕入先名", "請求年月", "書類区分",
@@ -91,15 +89,18 @@ def _append_csv(csv_path: Path, rows: list[dict], source_file: str) -> int:
 
 def process_one(
     pdf_path: Path,
-    client: anthropic.Anthropic,
+    client,
     csv_dir: Path,
     log_cb: Callable[[str, str], None],
     force: bool = False,
+    provider: str = DEFAULT_PROVIDER,
+    model: str | None = None,
 ) -> ProcessResult:
     text = extract_text(pdf_path)
     images = [] if text.strip() else pdf_to_images_b64(pdf_path)
 
-    attempts = call_claude(client, text.strip(), images, PROMPT, _parse, tries=3, log_cb=log_cb)
+    attempts = call_claude(client, text.strip(), images, PROMPT, _parse, tries=3,
+                           log_cb=log_cb, provider=provider, model=model)
 
     if not attempts:
         log_cb("error", f"{pdf_path.name}: データ取得失敗")

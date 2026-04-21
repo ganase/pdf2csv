@@ -338,6 +338,11 @@
         <span x-text="running ? '処理中...' : (tab === 'rename' ? 'リネーム実行' : 'CSV変換実行')"></span>
       </button>
       <span x-show="!apiKeySet" class="text-xs" style="color:#BF0000;">APIキーを設定してください</span>
+      <span x-show="apiKeySet" class="text-xs" style="color:#9CA3AF;">
+        <span x-text="providers[selectedProvider] ? providers[selectedProvider].label : selectedProvider"></span>
+        /
+        <span x-text="customModel || selectedModel" style="font-family:monospace;"></span>
+      </span>
     </div>
   </div>
 
@@ -580,6 +585,41 @@
         </p>
       </div>
 
+      <!-- モデル選択 -->
+      <div>
+        <label class="block text-sm font-semibold mb-1.5" style="color:#374151;">使用モデル</label>
+
+        <!-- プロバイダー -->
+        <div class="mb-2">
+          <label class="block text-xs mb-1" style="color:#6B7280;">プロバイダー</label>
+          <select x-model="selectedProvider" @change="onProviderChange()"
+                  class="input-field text-sm">
+            <template x-for="(cfg, key) in providers" :key="key">
+              <option :value="key" x-text="cfg.label"></option>
+            </template>
+          </select>
+        </div>
+
+        <!-- モデル選択 + 手入力 -->
+        <div class="mb-2">
+          <label class="block text-xs mb-1" style="color:#6B7280;">モデルID</label>
+          <select x-model="selectedModel" @change="customModel = ''"
+                  class="input-field text-sm mb-1.5">
+            <template x-for="m in (providers[selectedProvider] && providers[selectedProvider].models || [])" :key="m">
+              <option :value="m" x-text="m"></option>
+            </template>
+          </select>
+          <input type="text"
+                 x-model="customModel"
+                 placeholder="手入力（リストにないモデルIDを使う場合）"
+                 class="input-field text-sm">
+        </div>
+
+        <p class="text-xs" style="color:#9CA3AF;">
+          手入力欄に入力するとそちらが優先されます。
+        </p>
+      </div>
+
       <div x-show="settingsSaved"
            class="text-sm font-semibold flex items-center gap-1.5" style="color:#15803D;">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -604,6 +644,10 @@ function app() {
     running: false,
     uploading: false,
     uploadError: '',
+    providers: {},
+    selectedProvider: 'rakuten_anthropic',
+    selectedModel: 'claude-sonnet-4-6',
+    customModel: '',
     logs: [],
     currentJobId: null,
     currentJobType: null,
@@ -620,6 +664,7 @@ function app() {
 
     async init() {
       await this.loadSettings();
+      await this.loadModels();
       await this.loadFiles();
       await this.loadHistory();
     },
@@ -632,6 +677,23 @@ function app() {
         this.apiKeyMasked = d.api_key_masked;
         this.apiKeySource = d.source;
       } catch (e) { console.error(e); }
+    },
+
+    async loadModels() {
+      try {
+        const r = await fetch('/api/models');
+        const d = await r.json();
+        this.providers = d.providers;
+        this.selectedProvider = d.default_provider;
+        const cfg = d.providers[d.default_provider];
+        this.selectedModel = cfg ? cfg.default_model : '';
+      } catch (e) { console.error(e); }
+    },
+
+    onProviderChange() {
+      const cfg = this.providers[this.selectedProvider];
+      this.selectedModel = cfg ? cfg.default_model : '';
+      this.customModel = '';
     },
 
     async saveSettings() {
@@ -737,7 +799,13 @@ function app() {
         const r = await fetch('/api/run', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: this.tab, files: selected, force: this.force }),
+          body: JSON.stringify({
+            type: this.tab,
+            files: selected,
+            force: this.force,
+            provider: this.selectedProvider,
+            model: this.customModel || this.selectedModel,
+          }),
         });
         if (!r.ok) {
           const d = await r.json();

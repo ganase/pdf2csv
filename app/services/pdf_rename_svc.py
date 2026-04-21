@@ -7,9 +7,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Callable, TypedDict
 
-import anthropic
-
-from .claude import call_claude, extract_text, pdf_to_images_b64, FatalApiError
+from .claude import call_claude, extract_text, pdf_to_images_b64, FatalApiError, DEFAULT_PROVIDER
 
 PROMPT = """
 以下のPDF書類から、次の4項目を抽出してください。
@@ -51,14 +49,17 @@ def _sanitize(name: str) -> str:
 
 def rename_one(
     pdf_path: Path,
-    client: anthropic.Anthropic,
+    client,
     out_dir: Path,
     log_cb: Callable[[str, str], None],
+    provider: str = DEFAULT_PROVIDER,
+    model: str | None = None,
 ) -> RenameResult:
     text = extract_text(pdf_path)
     images = [] if text.strip() else pdf_to_images_b64(pdf_path)
 
-    attempts = call_claude(client, text.strip(), images, PROMPT, _parse, tries=3, log_cb=log_cb)
+    attempts = call_claude(client, text.strip(), images, PROMPT, _parse, tries=3,
+                           log_cb=log_cb, provider=provider, model=model)
 
     if not attempts:
         log_cb("error", f"{pdf_path.name}: データ取得失敗")

@@ -17,7 +17,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .services.claude import FatalApiError, make_client
+from .services.claude import FatalApiError, make_client, PROVIDERS, DEFAULT_PROVIDER
 from .services.pdf_rename_svc import rename_one
 from .services.pdf_process_svc import process_one
 
@@ -96,6 +96,12 @@ async def post_settings(body: SettingsBody):
     return {"ok": True}
 
 
+# ── モデル一覧 ────────────────────────────────────────────────
+@app.get("/api/models")
+async def get_models():
+    return {"providers": PROVIDERS, "default_provider": DEFAULT_PROVIDER}
+
+
 # ── PDFファイル一覧 ────────────────────────────────────────────
 @app.get("/api/pdf_files")
 async def list_pdf_files():
@@ -150,6 +156,8 @@ class RunRequest(BaseModel):
     type: str          # "rename" | "process"
     files: list[str]   # PDF_DIR 相対パス。空 = 全件
     force: bool = False
+    provider: str = DEFAULT_PROVIDER
+    model: str = ""    # 空文字 = プロバイダーのデフォルト
 
 
 @app.post("/api/run", status_code=202)
@@ -184,6 +192,8 @@ async def run_job(req: RunRequest):
         "finished_at": None,
         "pdf_files":   pdf_files,
         "force":       req.force,
+        "provider":    req.provider,
+        "model":       req.model or None,
         "results":     [],
         "queue":       queue,
         "_done_payload": None,
@@ -295,7 +305,9 @@ def _run_job(job_id: str):
         _finish(job, "error")
         return
 
-    client = make_client(api_key)
+    provider = job.get("provider", DEFAULT_PROVIDER)
+    model    = job.get("model") or None
+    client = make_client(api_key, provider)
 
     def log_cb(level: str, text: str):
         _put(job, counter, level, text)
@@ -306,9 +318,10 @@ def _run_job(job_id: str):
             pdf_path = PDF_DIR / rel
             log_cb("info", f"処理開始: {rel}")
             if job["type"] == "rename":
-                r = rename_one(pdf_path, client, RENAMED_DIR, log_cb)
+                r = rename_one(pdf_path, client, RENAMED_DIR, log_cb, provider=provider, model=model)
             else:
-                r = process_one(pdf_path, client, CSV_DIR, log_cb, force=job["force"])
+                r = process_one(pdf_path, client, CSV_DIR, log_cb, force=job["force"],
+                                provider=provider, model=model)
             results.append(dict(r))
     except FatalApiError as e:
         log_cb("error", f"致命的エラー: {e}")
