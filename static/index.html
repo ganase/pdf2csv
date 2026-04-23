@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PDF2CSV — Rakuten</title>
-<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
-<link rel="alternate icon" href="/static/favicon.ico">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=2">
+<link rel="alternate icon" href="/static/favicon.ico?v=2">
 
 <!-- Rakuten Sans variable font (Latin + extended) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,11 +18,11 @@
     theme: {
       extend: {
         colors: {
-          rakuten: {
-            red:      '#BF0000',
-            redhover: '#990000',
-            redlight: '#FFF0F0',
-            redborder:'#F5C6C6',
+          brand: {
+            blue:       '#BF0000',
+            bluehover:  '#A00000',
+            bluelight:  '#FFF0F0',
+            blueborder: '#FFCCCC',
           },
         },
         fontFamily: {
@@ -74,7 +74,7 @@
   /* ── タブ ── */
   .tab-active   { border-bottom: 2px solid #BF0000; color: #BF0000; font-weight: 600; }
   .tab-inactive { color: #6B7280; }
-  .tab-inactive:hover { color: #1A1A1A; }
+  .tab-inactive:hover { color: #BF0000; }
 
   /* ── プライマリボタン ── */
   .btn-primary {
@@ -89,7 +89,7 @@
     align-items: center;
     gap: 6px;
   }
-  .btn-primary:hover:not(:disabled) { background: #990000; }
+  .btn-primary:hover:not(:disabled) { background: #A00000; }
   .btn-primary:disabled { background: #D1D5DB; color: #9CA3AF; cursor: not-allowed; }
 
   /* ── セカンダリボタン ── */
@@ -102,10 +102,10 @@
     background: #fff;
     transition: border-color 0.15s, color 0.15s;
   }
-  .btn-ghost:hover { color: #1A1A1A; border-color: #9CA3AF; }
+  .btn-ghost:hover { color: #BF0000; border-color: #BF0000; }
 
   /* ── テーブルヘッダー ── */
-  .th { background: #1A1A1A; color: #fff; font-weight: 600; font-size: 0.75rem; }
+  .th { background: #BF0000; color: #fff; font-weight: 600; font-size: 0.75rem; }
 
   /* ── バッジ ── */
   .badge-ok     { background:#DCFCE7; color:#15803D; font-weight:600; }
@@ -164,7 +164,7 @@
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
   }
-  .spinner-red {
+  .spinner-blue {
     border-color: rgba(191,0,0,0.25);
     border-top-color: #BF0000;
   }
@@ -233,12 +233,12 @@
 
 <!-- APIキー未設定バナー -->
 <div x-show="!apiKeySet"
-     style="background:#FFF0F0;border-bottom:1px solid #F5C6C6;"
-     class="px-5 py-2.5 flex items-center gap-2 text-sm" style="color:#9B1C1C;">
+     style="background:#FFF0F0;border-bottom:1px solid #FFCCCC;"
+     class="px-5 py-2.5 flex items-center gap-2 text-sm">
   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" style="color:#BF0000;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
   </svg>
-  <span style="color:#9B1C1C;">Rakuten AI Gateway キーが設定されていません。</span>
+  <span style="color:#7A0000;">APIキーが設定されていません（<span x-text="apiEnvVar" style="font-family:monospace;font-size:0.75rem;"></span>）。</span>
   <button @click="settingsOpen = true"
           style="color:#BF0000;font-weight:600;text-decoration:underline;">設定画面を開く</button>
 </div>
@@ -302,7 +302,7 @@
 
     <!-- アップロード中インジケーター -->
     <div x-show="uploading" class="mb-2 text-xs flex items-center gap-1.5" style="color:#BF0000;">
-      <span class="spinner spinner-red" style="width:10px;height:10px;"></span>
+      <span class="spinner spinner-blue" style="width:10px;height:10px;"></span>
       アップロード中...
     </div>
     <div x-show="uploadError" class="mb-2 text-xs" style="color:#B91C1C;" x-text="uploadError"></div>
@@ -379,7 +379,7 @@
       <div class="flex items-center gap-2">
         <span class="section-label">処理ログ</span>
         <span x-show="running" class="flex items-center gap-1.5 text-xs" style="color:#BF0000;">
-          <span class="spinner spinner-red" style="width:10px;height:10px;"></span>
+          <span class="spinner spinner-blue" style="width:10px;height:10px;"></span>
           処理中
         </span>
       </div>
@@ -563,56 +563,24 @@
      @click.self="settingsOpen = false">
 
   <div class="bg-white rounded-lg shadow-2xl w-full max-w-md"
-       style="border:1px solid #E5E7EB;">
+       style="border:1px solid #E5E7EB;max-height:90vh;display:flex;flex-direction:column;">
     <!-- モーダルヘッダー -->
-    <div class="flex items-center justify-between px-6 py-4"
-         style="border-bottom:1px solid #E5E7EB;">
-      <h2 class="font-bold text-base" style="color:#1A1A1A;">設定</h2>
+    <div class="flex items-center justify-between px-6 py-3"
+         style="background:#BF0000;border-radius:8px 8px 0 0;">
+      <h2 class="font-bold text-sm" style="color:#fff;letter-spacing:0.05em;">設定</h2>
       <button @click="settingsOpen = false"
-              class="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 transition text-gray-400 text-lg leading-none">
+              class="w-7 h-7 flex items-center justify-center rounded transition text-lg leading-none font-bold"
+              style="color:rgba(255,255,255,0.8);background:rgba(255,255,255,0.1);"
+              onmouseover="this.style.background='rgba(255,255,255,0.25)'"
+              onmouseout="this.style.background='rgba(255,255,255,0.1)'">
         ×
       </button>
     </div>
 
     <!-- モーダルボディ -->
-    <div class="px-6 py-5 space-y-5">
-      <div>
-        <label class="block text-sm font-semibold mb-1.5" style="color:#374151;">
-          Rakuten AI Gateway キー
-        </label>
+    <div class="px-6 py-5 space-y-5 overflow-y-auto" style="flex:1;">
 
-        <!-- 現在の設定表示 -->
-        <div x-show="apiKeySet" class="mb-3 text-sm" style="color:#6B7280;">
-          現在の設定:
-          <code class="text-xs px-1.5 py-0.5 rounded num"
-                style="background:#F3F4F6;color:#374151;font-family:monospace;"
-                x-text="apiKeyMasked"></code>
-          <span x-show="apiKeySource === 'env_var'"
-                class="ml-2 text-xs font-semibold" style="color:#92400E;">
-            環境変数から読み込み（変更不可）
-          </span>
-        </div>
-
-        <!-- 入力フォーム -->
-        <div x-show="apiKeySource !== 'env_var'" class="space-y-2">
-          <input type="password"
-                 x-model="apiKeyInput"
-                 placeholder="Rakuten AI Gateway APIキーを入力"
-                 class="input-field">
-          <button @click="saveSettings()"
-                  :disabled="!apiKeyInput.trim()"
-                  class="btn-primary w-full justify-center">
-            保存
-          </button>
-        </div>
-
-        <p class="mt-3 text-xs" style="color:#9CA3AF;">
-          Rakuten AI Gateway のAPIキーを入力してください。<br>
-          環境変数 <code style="font-family:monospace;background:#F3F4F6;padding:1px 4px;border-radius:2px;">RAKUTEN_AI_GATEWAY_KEY</code> でも設定できます。
-        </p>
-      </div>
-
-      <!-- モデル選択 -->
+      <!-- モデル選択（先に表示してプロバイダー選択でキー欄を切り替える） -->
       <div>
         <label class="block text-sm font-semibold mb-1.5" style="color:#374151;">使用モデル</label>
 
@@ -645,6 +613,48 @@
         <p class="text-xs" style="color:#9CA3AF;">
           手入力欄に入力するとそちらが優先されます。
         </p>
+        <button @click="saveModelSettings()"
+                class="btn-primary mt-3 w-full justify-center">
+          モデル設定を保存
+        </button>
+      </div>
+
+      <!-- APIキー設定（プロバイダー選択後） -->
+      <div>
+        <label class="block text-sm font-semibold mb-1.5" style="color:#374151;"
+               x-text="apiKeyLabel"></label>
+
+        <!-- 現在の設定表示 -->
+        <div x-show="apiKeySet" class="mb-3 text-sm" style="color:#6B7280;">
+          現在の設定:
+          <code class="text-xs px-1.5 py-0.5 rounded num"
+                style="background:#F3F4F6;color:#374151;font-family:monospace;"
+                x-text="apiKeyMasked"></code>
+          <span x-show="apiKeySource === 'env_var'"
+                class="ml-2 text-xs font-semibold" style="color:#92400E;">
+            環境変数から読み込み（変更不可）
+          </span>
+        </div>
+
+        <!-- 入力フォーム -->
+        <div x-show="apiKeySource !== 'env_var'" class="space-y-2">
+          <input type="password"
+                 x-model="apiKeyInput"
+                 :placeholder="apiKeyPlaceholder"
+                 class="input-field">
+          <button @click="saveSettings()"
+                  :disabled="!apiKeyInput.trim()"
+                  class="btn-primary w-full justify-center">
+            保存
+          </button>
+        </div>
+
+        <p class="mt-3 text-xs" style="color:#9CA3AF;">
+          環境変数
+          <code style="font-family:monospace;background:#F3F4F6;padding:1px 4px;border-radius:2px;"
+                x-text="apiEnvVar"></code>
+          でも設定できます。
+        </p>
       </div>
 
       <div x-show="settingsSaved"
@@ -663,6 +673,16 @@
      Alpine.js ロジック
 ═══════════════════════════════════════════════ -->
 <script>
+// プロバイダーごとのキー情報（バックエンドの _PROVIDER_ENV_VARS と対応）
+const PROVIDER_KEY_INFO = {
+  rakuten_anthropic: { label: 'Rakuten AI Gateway キー', placeholder: 'Rakuten AI Gateway APIキーを入力', envVar: 'RAKUTEN_AI_GATEWAY_KEY' },
+  rakuten_openai:    { label: 'Rakuten AI Gateway キー', placeholder: 'Rakuten AI Gateway APIキーを入力', envVar: 'RAKUTEN_AI_GATEWAY_KEY' },
+  rakuten_gemini:    { label: 'Rakuten AI Gateway キー', placeholder: 'Rakuten AI Gateway APIキーを入力', envVar: 'RAKUTEN_AI_GATEWAY_KEY' },
+  rakuten_llm:       { label: 'Rakuten AI Gateway キー', placeholder: 'Rakuten AI Gateway APIキーを入力', envVar: 'RAKUTEN_AI_GATEWAY_KEY' },
+  openai:            { label: 'OpenAI API キー',         placeholder: 'sk-... を入力',                   envVar: 'OPENAI_API_KEY' },
+  anthropic:         { label: 'Anthropic API キー',      placeholder: 'sk-ant-... を入力',               envVar: 'ANTHROPIC_API_KEY' },
+};
+
 function app() {
   return {
     tab: 'process',
@@ -689,16 +709,26 @@ function app() {
     settingsSaved: false,
     settingsError: '',
 
+    get apiKeyLabel() {
+      return (PROVIDER_KEY_INFO[this.selectedProvider] || PROVIDER_KEY_INFO.rakuten_anthropic).label;
+    },
+    get apiKeyPlaceholder() {
+      return (PROVIDER_KEY_INFO[this.selectedProvider] || PROVIDER_KEY_INFO.rakuten_anthropic).placeholder;
+    },
+    get apiEnvVar() {
+      return (PROVIDER_KEY_INFO[this.selectedProvider] || PROVIDER_KEY_INFO.rakuten_anthropic).envVar;
+    },
+
     async init() {
-      await this.loadSettings();
       await this.loadModels();
+      await this.loadSettings();
       await this.loadFiles();
       await this.loadHistory();
     },
 
     async loadSettings() {
       try {
-        const r = await fetch('/api/settings');
+        const r = await fetch(`/api/settings?provider=${encodeURIComponent(this.selectedProvider)}`);
         const d = await r.json();
         this.apiKeySet    = d.api_key_set;
         this.apiKeyMasked = d.api_key_masked;
@@ -708,19 +738,59 @@ function app() {
 
     async loadModels() {
       try {
-        const r = await fetch('/api/models');
-        const d = await r.json();
+        const [modelsRes, modelCfgRes] = await Promise.all([
+          fetch('/api/models'),
+          fetch('/api/settings/model'),
+        ]);
+        const d = await modelsRes.json();
+        const saved = await modelCfgRes.json();
         this.providers = d.providers;
-        this.selectedProvider = d.default_provider;
-        const cfg = d.providers[d.default_provider];
-        this.selectedModel = cfg ? cfg.default_model : '';
+        // 前回保存したプロバイダーがあればそちらを優先
+        const lastProvider = saved.last_provider || d.default_provider;
+        this.selectedProvider = this.providers[lastProvider] ? lastProvider : d.default_provider;
+        const cfg = this.providers[this.selectedProvider];
+        const lastModel = saved.last_model || '';
+        // 前回モデルがそのプロバイダーのリストにあれば復元、なければデフォルト
+        this.selectedModel = (lastModel && cfg && cfg.models.includes(lastModel))
+          ? lastModel
+          : (cfg ? cfg.default_model : '');
+        // リストにないモデルは手入力欄に
+        this.customModel = (lastModel && cfg && !cfg.models.includes(lastModel)) ? lastModel : '';
       } catch (e) { console.error(e); }
     },
 
-    onProviderChange() {
+    async onProviderChange() {
       const cfg = this.providers[this.selectedProvider];
       this.selectedModel = cfg ? cfg.default_model : '';
       this.customModel = '';
+      this.apiKeyInput = '';
+      this.settingsSaved = false;
+      this.settingsError = '';
+      await this.loadSettings();
+    },
+
+    async saveModelSettings() {
+      this.settingsSaved = false;
+      this.settingsError = '';
+      try {
+        const r = await fetch('/api/settings/model', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider: this.selectedProvider,
+            model: this.customModel || this.selectedModel,
+          }),
+        });
+        if (!r.ok) {
+          const d = await r.json();
+          this.settingsError = d.detail || '保存に失敗しました';
+          return;
+        }
+        this.settingsSaved = true;
+        setTimeout(() => { this.settingsSaved = false; }, 3000);
+      } catch (e) {
+        this.settingsError = String(e);
+      }
     },
 
     async saveSettings() {
@@ -730,7 +800,7 @@ function app() {
         const r = await fetch('/api/settings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ api_key: this.apiKeyInput }),
+          body: JSON.stringify({ api_key: this.apiKeyInput, provider: this.selectedProvider }),
         });
         if (!r.ok) {
           const d = await r.json();

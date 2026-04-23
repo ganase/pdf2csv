@@ -60,6 +60,32 @@ PROVIDERS = {
         ],
         "default_model": "rakutenai-2.0",
     },
+    "openai": {
+        "label": "OpenAI (直接)",
+        "sdk": "openai",
+        "base_url": None,
+        "models": [
+            "gpt-4.1",
+            "gpt-4.1-mini",
+            "gpt-4.1-nano",
+            "gpt-4o",
+            "gpt-4o-mini",
+            "o3",
+            "o4-mini",
+        ],
+        "default_model": "gpt-4.1-mini",
+    },
+    "anthropic": {
+        "label": "Anthropic (直接)",
+        "sdk": "anthropic",
+        "base_url": None,
+        "models": [
+            "claude-opus-4-7",
+            "claude-sonnet-4-6",
+            "claude-haiku-4-5-20251001",
+        ],
+        "default_model": "claude-sonnet-4-6",
+    },
 }
 
 DEFAULT_PROVIDER = "rakuten_anthropic"
@@ -72,12 +98,19 @@ class FatalApiError(Exception):
 def make_client(api_key: str, provider: str = DEFAULT_PROVIDER):
     """プロバイダーに応じたクライアントを生成して返す"""
     cfg = PROVIDERS.get(provider, PROVIDERS[DEFAULT_PROVIDER])
+    base_url = cfg["base_url"]
     if cfg["sdk"] == "anthropic":
         from anthropic import Anthropic
-        return Anthropic(base_url=cfg["base_url"], auth_token=api_key)
+        kwargs = {"auth_token": api_key}
+        if base_url:
+            kwargs["base_url"] = base_url
+        return Anthropic(**kwargs)
     else:
         from openai import OpenAI
-        return OpenAI(base_url=cfg["base_url"], api_key=api_key)
+        kwargs = {"api_key": api_key}
+        if base_url:
+            kwargs["base_url"] = base_url
+        return OpenAI(**kwargs)
 
 
 def extract_text(pdf_path: Path) -> str:

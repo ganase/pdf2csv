@@ -70,32 +70,87 @@ async def index():
     )
 
 
+# ── プロバイダー別 env var 名マッピング ────────────────────────
+_PROVIDER_ENV_VARS = {
+    "rakuten_anthropic": "RAKUTEN_AI_GATEWAY_KEY",
+    "rakuten_openai":    "RAKUTEN_AI_GATEWAY_KEY",
+    "rakuten_gemini":    "RAKUTEN_AI_GATEWAY_KEY",
+    "rakuten_llm":       "RAKUTEN_AI_GATEWAY_KEY",
+    "openai":            "OPENAI_API_KEY",
+    "anthropic":         "ANTHROPIC_API_KEY",
+}
+
+def _env_var_for(provider: str) -> str:
+    return _PROVIDER_ENV_VARS.get(provider, "RAKUTEN_AI_GATEWAY_KEY")
+
+def _get_api_key(provider: str) -> str:
+    load_dotenv(str(ENV_PATH), override=True)
+    return os.environ.get(_env_var_for(provider), "")
+
+def _saved_provider() -> str:
+    """前回保存したプロバイダーを .env から読む。なければ DEFAULT_PROVIDER。"""
+    return dotenv_values(str(ENV_PATH)).get("LAST_PROVIDER", DEFAULT_PROVIDER)
+
+
 # ── 設定 ──────────────────────────────────────────────────────
 @app.get("/api/settings")
-async def get_settings():
-    env_key = os.environ.get("RAKUTEN_AI_GATEWAY_KEY", "")
+async def get_settings(provider: str | None = None):
+    # provider 未指定なら前回保存値を使う
+    if not provider:
+        provider = _saved_provider()
+    env_var = _env_var_for(provider)
+    load_dotenv(str(ENV_PATH), override=True)
+    env_key = os.environ.get(env_var, "")
     if env_key:
-        masked = _mask(env_key)
-        return {"api_key_set": True, "api_key_masked": masked, "source": "env_var"}
-    dotenv_key = dotenv_values(str(ENV_PATH)).get("RAKUTEN_AI_GATEWAY_KEY", "")
+        return {"api_key_set": True, "api_key_masked": _mask(env_key),
+                "source": "env_var", "env_var": env_var, "last_provider": provider}
+    dotenv_key = dotenv_values(str(ENV_PATH)).get(env_var, "")
     if dotenv_key:
-        return {"api_key_set": True, "api_key_masked": _mask(dotenv_key), "source": "dotenv"}
-    return {"api_key_set": False, "api_key_masked": "", "source": "dotenv"}
+        return {"api_key_set": True, "api_key_masked": _mask(dotenv_key),
+                "source": "dotenv", "env_var": env_var, "last_provider": provider}
+    return {"api_key_set": False, "api_key_masked": "",
+            "source": "dotenv", "env_var": env_var, "last_provider": provider}
 
 
 class SettingsBody(BaseModel):
     api_key: str
+    provider: str = DEFAULT_PROVIDER
 
 
 @app.post("/api/settings")
 async def post_settings(body: SettingsBody):
-    if os.environ.get("RAKUTEN_AI_GATEWAY_KEY"):
+    env_var = _env_var_for(body.provider)
+    if os.environ.get(env_var):
         raise HTTPException(400, "環境変数で設定されているため変更できません")
     key = body.api_key.strip()
     if not key:
         raise HTTPException(422, "APIキーが空です")
-    _write_env_key(key)
+    _write_env_key(env_var, key)
+    _write_env_key("LAST_PROVIDER", body.provider)
     return {"ok": True}
+
+
+class ModelBody(BaseModel):
+    provider: str
+    model: str = ""
+
+
+@app.post("/api/settings/model")
+async def post_model_settings(body: ModelBody):
+    """プロバイダー・モデル選択のみ保存（APIキー変更なし）"""
+    _write_env_key("LAST_PROVIDER", body.provider)
+    if body.model:
+        _write_env_key("LAST_MODEL", body.model)
+    return {"ok": True}
+
+
+@app.get("/api/settings/model")
+async def get_model_settings():
+    vals = dotenv_values(str(ENV_PATH))
+    return {
+        "last_provider": vals.get("LAST_PROVIDER", DEFAULT_PROVIDER),
+        "last_model":    vals.get("LAST_MODEL", ""),
+    }
 
 
 # ── フォルダを開く（ローカル専用） ────────────────────────────
@@ -331,10 +386,12 @@ async def download(job_id: str, filename: str):
         raise HTTPException(400, "不正なパスです")
     if not resolved.exists():
         raise HTTPException(404, "ファイルが見つかりません")
+    from urllib.parse import quote
+    encoded = quote(resolved.name, safe="")
+    cd = f"attachment; filename*=UTF-8''{encoded}"
     return FileResponse(
         str(resolved),
-        filename=resolved.name,
-        headers={"Content-Disposition": f'attachment; filename="{resolved.name}"'},
+        headers={"Content-Disposition": cd},
     )
 
 
@@ -344,14 +401,14 @@ def _run_job(job_id: str):
     job["status"] = "running"
     counter = [0]
 
-    load_dotenv(str(ENV_PATH))
-    api_key = os.environ.get("RAKUTEN_AI_GATEWAY_KEY", "")
+    provider = job.get("provider", DEFAULT_PROVIDER)
+    api_key = _get_api_key(provider)
+    env_var = _env_var_for(provider)
     if not api_key:
-        _put(job, counter, "error", "RAKUTEN_AI_GATEWAY_KEY が設定されていません")
+        _put(job, counter, "error", f"{env_var} が設定されていません")
         _finish(job, "error")
         return
 
-    provider = job.get("provider", DEFAULT_PROVIDER)
     model    = job.get("model") or None
     client = make_client(api_key, provider)
 
@@ -413,18 +470,18 @@ def _json(obj: Any) -> str:
     return json.dumps(obj, ensure_ascii=False)
 
 
-def _write_env_key(key: str):
+def _write_env_key(env_var: str, key: str):
     lines = []
     replaced = False
     if ENV_PATH.exists():
         for line in ENV_PATH.read_text(encoding="utf-8").splitlines():
-            if line.startswith("RAKUTEN_AI_GATEWAY_KEY="):
-                lines.append(f"RAKUTEN_AI_GATEWAY_KEY={key}")
+            if line.startswith(f"{env_var}="):
+                lines.append(f"{env_var}={key}")
                 replaced = True
             else:
                 lines.append(line)
     if not replaced:
-        lines.append(f"RAKUTEN_AI_GATEWAY_KEY={key}")
+        lines.append(f"{env_var}={key}")
     tmp = ENV_PATH.with_suffix(".tmp")
     tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")
     tmp.replace(ENV_PATH)
